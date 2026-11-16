@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SteelRoyale</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="hud" class="hidden">
+    <div id="vignette"></div>
+    <div id="storm-tint"></div>
+    <div id="storm-warning" class="hidden"></div>
+    <div id="scope" class="hidden"></div>
+    <div id="fps"></div>
+    <div id="mode-hint" class="hidden">This browser can't capture the mouse: move it to look around · <kbd>Esc</kbd> pauses</div>
+    <div id="killfeed"></div>
+    <div id="toasts"></div>
+    <div id="damage-dirs"></div>
+
+    <div id="crosshair">
+      <i class="ch ch-t"></i><i class="ch ch-b"></i><i class="ch ch-l"></i><i class="ch ch-r"></i><i class="ch-dot"></i>
+    </div>
+    <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+    <div id="damage-numbers"></div>
+
+    <div id="prompt" class="hidden">
+      <kbd>E</kbd><span class="text"></span>
+    </div>
+    <div id="use-bar" class="hidden">
+      <div class="label"></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+
+    <div id="minimap-wrap">
+      <canvas id="minimap" width="190" height="190"></canvas>
+      <div id="match-info"><span id="alive-count"></span><span id="kill-count"></span></div>
+      <div id="storm-timer" class="hidden"></div>
+    </div>
+
+    <div id="vitals">
+      <div class="bar shield">
+        <div class="fill"></div>
+        <div class="segments"><span></span><span></span><span></span></div>
+        <span class="val"></span>
+      </div>
+      <div class="bar health">
+        <div class="fill"></div>
+        <span class="val"></span>
+      </div>
+    </div>
+
+    <div id="loadout">
+      <div id="weapon-panel">
+        <div class="name"></div>
+        <div class="ammo"><span class="mag"></span><span class="sep">/</span><span class="reserve"></span></div>
+        <div class="reload"><div class="fill"></div></div>
+      </div>
+      <div id="hotbar"></div>
+      <div id="ammo-reserves"></div>
+    </div>
+  </div>
+
+  <div id="fullmap" class="hidden">
+    <div class="frame">
+      <canvas width="720" height="720"></canvas>
+      <div class="legend"><kbd>M</kbd> close map</div>
+    </div>
+  </div>
+
+  <div id="overlay" class="screen">
+    <div class="panel">
+      <h1>STEEL<span>ROYALE</span></h1>
+      <p class="sub" id="overlay-sub">Battle royale · offline</p>
+      <div id="menu">
+        <div class="option-row">
+          <span class="label">Players</span>
+          <div class="seg" data-name="players">
+            <button type="button" data-value="25">25</button>
+            <button type="button" data-value="50">50</button>
+            <button type="button" data-value="100">100</button>
+          </div>
+        </div>
+        <div class="option-row">
+          <span class="label">Bots</span>
+          <div class="seg" data-name="difficulty">
+            <button type="button" data-value="easy">Easy</button>
+            <button type="button" data-value="normal">Normal</button>
+            <button type="button" data-value="hard">Hard</button>
+          </div>
+        </div>
+      </div>
+      <div class="buttons">
+        <button id="play" type="button" disabled>Play</button>
+        <button id="training" type="button" class="secondary" disabled>Training range</button>
+      </div>
+      <p class="loading" id="loading">Loading…</p>
+      <ul class="controls">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</li>
+        <li><kbd>Shift</kbd> Sprint</li>
+        <li><kbd>Space</kbd> Jump / mantle</li>
+        <li><kbd>Ctrl</kbd> Hold to crouch (slide)</li>
+        <li><kbd>LMB</kbd> Shoot / use item</li>
+        <li><kbd>RMB</kbd> Aim</li>
+        <li><kbd>E</kbd> Pick up / open</li>
+        <li><kbd>1</kbd>–<kbd>5</kbd> Slots</li>
+        <li><kbd>Tab</kbd> Inventory (tap or hold)</li>
+        <li><kbd>R</kbd> Reload</li>
+        <li><kbd>G</kbd> Drop item</li>
+        <li><kbd>M</kbd> Map (tap or hold)</li>
+        <li><kbd>Esc</kbd> Pause</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="endscreen" class="screen hidden">
+    <div class="panel">
+      <div class="place" id="end-place"></div>
+      <div class="title" id="end-title"></div>
+      <div class="by" id="end-by"></div>
+      <div class="stats">
+        <div><b id="end-kills">0</b><span>Eliminations</span></div>
+        <div><b id="end-damage">0</b><span>Damage</span></div>
+        <div><b id="end-time">0:00</b><span>Survived</span></div>
+      </div>
+      <div class="buttons">
+        <button id="again" type="button">Play again</button>
+        <button id="to-menu" type="button" class="secondary">Main menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/boot.js"></script>
+  <script type="module" src="js/main.js"
+    onerror="window.__steelBootFail && window.__steelBootFail('Could not load the game files (js/main.js). Is the server running?')"></script>
+</body>
+</html>
