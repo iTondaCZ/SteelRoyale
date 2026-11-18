@@ -100,7 +100,7 @@ Five rarities: Common (gray), Uncommon (green), Rare (blue), Epic (purple), Lege
 | Pistol | Light | 24 | 6.5/s | 12 | 1.4 s | semi-auto, head ×1.75 |
 | SMG | Light | 15 | 12/s | 30 | 2.0 s | auto |
 | Assault Rifle | Medium | 32 | 5.5/s | 30 | 2.2 s | auto |
-| Shotgun | Shells | 9 × 10 | 1.1/s | 5 | 4.0 s | pellets on one target add up to a single hit |
+| Shotgun | Shells | 9 × 18 | 1.1/s | 5 | 4.0 s | pellets on one target add up to a single hit; spread 4.5° hip, 2.8° aimed; two body blasts kill a full-shield player up close; falloff from 15 m down to half at 60 m |
 | Sniper Rifle | Heavy | 105 | 0.4/s | 4 | 3.2 s | projectile at 450 m/s with drop, head ×2, scope FOV 22°, Rare or better |
 | Rocket Launcher | Rockets | 110 blast | 0.6/s | 1 | 2.8 s | projectile at 70 m/s, 4.5 m blast, walls block it, Epic or Legendary |
 

@@ -92,9 +92,9 @@ export const WEAPONS = {
   },
   shotgun: {
     id: 'shotgun', name: 'Shotgun', short: 'SG', ammo: 'shells',
-    damage: 10, pellets: 9, fireRate: 1.1, mag: 5, reloadTime: 4.0, auto: false,
-    range: 45, falloffStart: 8, falloffMin: 0.3, headMul: 1.5,
-    spreadHip: 5.5, spreadAim: 4.2, spreadAir: 6, bloomPerShot: 0, bloomMax: 0, bloomRecover: 1,
+    damage: 18, pellets: 9, fireRate: 1.1, mag: 5, reloadTime: 4.0, auto: false,
+    range: 60, falloffStart: 15, falloffMin: 0.5, headMul: 1.5,
+    spreadHip: 4.5, spreadAim: 2.8, spreadAir: 5, bloomPerShot: 0, bloomMax: 0, bloomRecover: 1,
     rarities: ALL_RARITIES, value: 3, bestRange: [0, 12],
   },
   sniper: {

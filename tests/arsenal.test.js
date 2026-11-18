@@ -76,6 +76,44 @@ test('shotgun pellets on one target add up to a single hit', () => {
   assert.ok(t.shield < 150);
 });
 
+// One trigger pull with a fresh magazine and no cooldown; returns the damage it dealt to `id`.
+function blast(s, id, command) {
+  s.shooter.lastFire = false;
+  s.shooter.weapon.cooldown = 0;
+  s.shooter.weapon.mag = WEAPONS[s.shooter.weapon.type].mag;
+  const n = s.events.length;
+  simulate(s, command, TICK_DT);
+  return s.events.slice(n)
+    .filter((e) => e.type === 'hit' && e.targetId === id)
+    .reduce((a, e) => a + e.shieldDamage + e.healthDamage, 0);
+}
+
+test('two shotgun blasts from the hip kill a fully shielded player at 4 m', () => {
+  const s = setup('shotgun');
+  const t = target(s.world, 2, 0.7, -4, 150);
+  const aim = aimAt(s.shooter, s.world, { x: 0.7, y: 1.0, z: -4 });
+  blast(s, 2, cmd({ fire: true, ...aim }));
+  assert.ok(t.alive, 'one blast is not enough');
+  blast(s, 2, cmd({ fire: true, ...aim }));
+  assert.equal(t.alive, false);
+});
+
+test('aimed shotgun blasts still hit hard at 15 m but fade by 25 m', () => {
+  const meanBlast = (dist) => {
+    const s = setup('shotgun');
+    const t = target(s.world, 2, 0.7, -dist);
+    t.health = 1e6;
+    const aim = aimAt(s.shooter, s.world, { x: 0.7, y: 1.0, z: -dist });
+    let sum = 0;
+    for (let i = 0; i < 20; i++) sum += blast(s, 2, cmd({ fire: true, aim: true, ...aim }));
+    return sum / 20;
+  };
+  const at15 = meanBlast(15);
+  const at25 = meanBlast(25);
+  assert.ok(at15 >= 80, `mean blast at 15 m: ${at15}`);
+  assert.ok(at25 <= 55, `mean blast at 25 m: ${at25}`);
+});
+
 test('sniper bullets travel instead of hitting instantly', () => {
   const s = setup('sniper', 'rare');
   target(s.world, 2, 0.7, -100);
