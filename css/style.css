@@ -161,17 +161,25 @@ html, body {
 #hotbar { display: flex; gap: 5px; }
 #hotbar .slot {
   position: relative; width: 62px; height: 54px;
-  background: rgba(15,18,22,.72);
+  background-color: rgba(15,18,22,.72);
   border: 2px solid rgba(255,255,255,.12);
   border-bottom: 3px solid var(--slot-color, rgba(255,255,255,.12));
   display: grid; place-items: center;
   font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--steel-light);
   transition: width .15s ease-out, height .15s ease-out, transform .1s;
 }
-#hotbar .slot.selected { border-color: #fff; background: rgba(40,46,54,.85); transform: translateY(-4px); }
+#hotbar .slot.selected { border-color: #fff; background-color: rgba(40,46,54,.85); transform: translateY(-4px); }
 #hotbar .slot .key { position: absolute; top: 2px; left: 5px; font-size: 10px; color: var(--steel); font-weight: 400; }
-#hotbar .slot .count { position: absolute; bottom: 2px; right: 5px; font-size: 11px; color: #fff; }
-#hotbar .slot .icon { color: var(--slot-color, var(--steel-light)); }
+#hotbar .slot .count { position: absolute; bottom: 2px; right: 5px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
+/* Item icons (js/ui/item-icons.js). Weapons: a near-white silhouette over a rarity-coloured glow.
+   Consumables: the object in its own colour on the plain dark slot, so the two never get mixed up. */
+.slot .icon { display: flex; align-items: center; justify-content: center; color: var(--slot-color, var(--steel-light)); }
+.slot .icon svg { display: block; overflow: visible; filter: drop-shadow(0 1px 1px rgba(0,0,0,.75)); }
+.slot[data-kind="weapon"] { background-image: linear-gradient(180deg, transparent 15%, color-mix(in srgb, var(--slot-color) var(--glow, 40%), transparent)); }
+.slot[data-tier="3"], .slot[data-tier="4"] { --glow: 58%; } /* epic and legendary glow brighter */
+.slot[data-kind="weapon"] .icon { color: #eef1f4; }
+#hotbar .slot[data-kind="weapon"] .icon svg { width: 54px; height: 20px; }
+#hotbar .slot[data-kind="consumable"] .icon svg { width: 30px; height: 30px; }
 #hotbar .slot .info { display: none; }
 #ammo-reserves { display: flex; gap: 10px; font-size: 12px; color: var(--steel); }
 #ammo-reserves .chip { display: flex; gap: 3px; }
@@ -212,13 +220,18 @@ html, body {
   transform: none;
   cursor: grab; user-select: none; touch-action: none;
 }
-#hud.inv-open #hotbar .slot.selected { border-color: rgba(255,255,255,.85); border-bottom-color: var(--slot-color, #fff); background: rgba(34,40,48,.85); }
+#hud.inv-open #hotbar .slot.selected { border-color: rgba(255,255,255,.85); border-bottom-color: var(--slot-color, #fff); background-color: rgba(34,40,48,.85); }
 #hud.inv-open #hotbar .slot.empty { cursor: default; }
 #hud.inv-open #hotbar .slot.empty .title { color: var(--steel); opacity: .6; }
-#hud.inv-open #hotbar .slot.drop-target { border-color: var(--safety); background: rgba(255,122,26,.14); }
+#hud.inv-open #hotbar .slot.drop-target { border-color: var(--safety); background-color: rgba(255,122,26,.14); }
 #hud.inv-open #hotbar .slot.dragging { opacity: .35; }
-#hud.inv-open #hotbar .slot[data-tier="3"], #hud.inv-open #hotbar .slot[data-tier="4"] { box-shadow: inset 0 -40px 40px -30px var(--slot-color); }
-#hud.inv-open #hotbar .slot .icon, .inv-ghost.slot .icon { font-size: 28px; line-height: 1.1; font-weight: 800; color: var(--slot-color, var(--steel-light)); }
+/* Large cards: the rarity glow sits behind the weapon, so the text below stays on dark. */
+#hud.inv-open #hotbar .slot[data-kind="weapon"], .inv-ghost.slot[data-kind="weapon"] {
+  background-image: radial-gradient(ellipse 80% 32% at 50% 37%, color-mix(in srgb, var(--slot-color) var(--glow, 40%), transparent), transparent);
+}
+#hud.inv-open #hotbar .slot .icon, .inv-ghost.slot .icon { width: 100%; height: 58px; flex: none; font-size: 28px; line-height: 1.1; font-weight: 800; }
+#hud.inv-open #hotbar .slot[data-kind="weapon"] .icon svg, .inv-ghost.slot[data-kind="weapon"] .icon svg { width: 100%; max-width: 136px; height: 100%; }
+#hud.inv-open #hotbar .slot[data-kind="consumable"] .icon svg, .inv-ghost.slot[data-kind="consumable"] .icon svg { width: 54px; height: 54px; }
 #hud.inv-open #hotbar .slot .count, .inv-ghost.slot .count { display: none; }
 #hud.inv-open #hotbar .slot .info, .inv-ghost.slot .info { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; text-align: center; }
 #hud.inv-open #hotbar .slot .title, .inv-ghost.slot .title { font-size: 13px; line-height: 1.2; color: #fff; font-weight: 600; letter-spacing: 0; }
@@ -234,7 +247,7 @@ html, body {
 #hud.inv-open #ammo-reserves .chip.none { display: flex; opacity: .35; cursor: default; }
 #hud.inv-open #ammo-reserves .chip.dragging { opacity: .35; }
 .inv-ghost { position: fixed; z-index: 60; pointer-events: none; margin: 0; transform: translate(-50%, -50%) rotate(-3deg); opacity: .92; box-shadow: 0 10px 30px #000a; font-family: var(--font); color: var(--steel-light); }
-.inv-ghost.slot { background: rgba(22,26,32,.95); border: 2px solid var(--safety); }
+.inv-ghost.slot { background-color: rgba(22,26,32,.95); border: 2px solid var(--safety); }
 .inv-ghost .key { position: absolute; top: 2px; left: 5px; font-size: 10px; color: var(--steel); }
 .inv-ghost.chip .label { color: var(--c); }
 
@@ -316,6 +329,8 @@ html, body {
   #vitals { left: 20px; transform: none; width: min(320px, calc(100vw - 380px)); bottom: 20px; }
   #loadout { right: 14px; bottom: 14px; }
   #hotbar .slot { width: 50px; height: 46px; font-size: 11px; }
+  #hotbar .slot[data-kind="weapon"] .icon svg { width: 44px; height: 17px; }
+  #hotbar .slot[data-kind="consumable"] .icon svg { width: 25px; height: 25px; }
   #minimap, #minimap-wrap canvas { width: 140px; height: 140px; }
 }
 

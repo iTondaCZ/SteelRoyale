@@ -5,7 +5,7 @@ A browser battle royale: you against up to 99 bots on a generated island. Plain 
 ## Run & test
 - `node server.js` serves on http://127.0.0.1:8080. Add `--open` to open the browser; `HOST=0.0.0.0` exposes it on the LAN. `play.bat` does the same on Windows.
 - `.claude/launch.json` has the preview config `steelroyale`: `preview_start({ name: 'steelroyale' })`. It's pinned to port 8080 (`autoPort: false`), so if 8080 is busy (e.g. `play.bat` is running) it fails instead of moving.
-- `npm test` runs `node --test "tests/**/*.test.js"`: about 152 tests, mostly the simulation, in about 11 s.
+- `npm test` runs `node --test "tests/**/*.test.js"`: about 165 tests, mostly the simulation, in about 11 s.
 - Opening `index.html` as a `file://` page never works (module scripts are blocked), and `js/boot.js` says so on screen.
 
 ## Architecture
@@ -26,6 +26,7 @@ A browser battle royale: you against up to 99 bots on a generated island. Plain 
   - `render/storm.js`: the storm wall shader plus in-storm weather (rain, clouds), which drives `view.setWeather` in `renderer.js`
   - `render/lightning.js`: bolts drawn as glowing ribbons, with shapes from `render/bolt-paths.js` (pure code, tested). Force a strike from the console with `steel.session.storm.lightning.spawn(top, ground, 'field')`
   - `ui/inventory.js`: the hotbar, which doubles as the Tab inventory
+  - `ui/item-icons.js`: the SVG item icons (weapon silhouettes on a 64×24 box, consumables on 24×24). A new weapon or consumable needs a drawing here; `tests/item-icons.test.js` fails until it has one
   - `hold-toggle.js`: the tap-or-hold logic for Tab and M
 
 ## Conventions and gotchas

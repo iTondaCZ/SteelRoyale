@@ -5,6 +5,7 @@
 // Ammo can be dragged off too. You keep moving the whole time.
 // The UI never changes the game directly: it queues inventory actions (onOp) for the simulation.
 import { WEAPONS, RARITY, CONSUMABLES, AMMO, RARITIES } from '../config.js';
+import { createItemIcon, iconKey } from './item-icons.js';
 
 const DRAG_THRESHOLD = 5;
 
@@ -33,7 +34,7 @@ export function createInventoryUI({ loadout, hotbar, reserves, hud, onOp }) {
     info.append(title, meta);
     card.append(el('span', 'key', String(i + 1)), icon, count, info);
     hotbar.append(card);
-    cards.push({ card, icon, count, title, meta });
+    cards.push({ card, icon, count, title, meta, iconKey: '' });
   }
   const chips = {};
   for (const type of Object.keys(AMMO)) {
@@ -168,7 +169,13 @@ export function createInventoryUI({ loadout, hotbar, reserves, hud, onOp }) {
       inv.slots.forEach((item, i) => {
         const d = describe(item, p);
         const c = cards[i];
-        c.icon.textContent = d.icon;
+        const ik = item ? iconKey(item) : '';
+        if (c.iconKey !== ik) {
+          c.iconKey = ik;
+          // Fall back to the short code for an item that has no drawing yet.
+          c.icon.replaceChildren(item ? (createItemIcon(item) ?? d.icon) : '');
+        }
+        c.card.dataset.kind = item ? item.kind : '';
         c.count.textContent = d.count;
         c.title.textContent = d.title;
         c.meta.textContent = d.meta;
