@@ -32,8 +32,10 @@ export const PLAYER = {
   slideSpeed: 8.5,
   slideDuration: 0.9,
   slideMinSpeed: 5.0,
-  // Mantle: climb ledges whose top is this far above the feet
+  // Mantle: climb ledges whose top is this far above the feet. On the ground Space jumps;
+  // a fresh press in mid-air (or while crouched) mantles, and in the air a ledge only has to clear mantleMinAir.
   mantleMin: 0.6,
+  mantleMinAir: 0.15,
   mantleMax: 2.45,
   // Jump forgiveness
   coyoteTime: 0.1,
@@ -129,7 +131,7 @@ export const CONSUMABLES = {
   bandage: { name: 'Bandage', short: 'BND', health: 15, cap: 75, useTime: 3, stack: 15, pile: 5, color: '#e9e4d8' },
   medkit: { name: 'Medkit', short: 'MED', health: 100, cap: 100, useTime: 8, stack: 3, pile: 1, color: '#e34b4b' },
   shieldSmall: { name: 'Small Shield', short: 'SH-S', shield: 25, cap: 75, useTime: 2, stack: 6, pile: 3, color: '#5ab4ff' },
-  shieldBig: { name: 'Big Shield', short: 'SH-L', shield: 50, cap: 150, useTime: 5, stack: 3, pile: 1, color: '#2f7fe0' },
+  shieldBig: { name: 'Big Shield', short: 'SH-L', shield: 75, cap: 150, useTime: 5, stack: 3, pile: 1, color: '#2f7fe0' },
 };
 
 export const INVENTORY = { slots: 5 };

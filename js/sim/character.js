@@ -38,6 +38,8 @@ export function createCharacter({ id, name, kind = 'bot', pos = { x: 0, y: 0, z:
     speed: 0,
     airTime: 0,
     jumpBuffer: 0,
+    mantleBuffer: 0,
+    lastJumpCmd: false,
     lastCrouchCmd: false,
     useSpeedMul: 1,
     stats: { kills: 0, damageDealt: 0 },
@@ -109,8 +111,8 @@ function surfaceTop(world, x, z, maxY) {
   return top;
 }
 
-/** Look for a ledge in front of the character that it can climb onto. */
-export function findMantle(c, world) {
+/** Look for a ledge in front of the character that it can climb onto (top at least `minRise` above the feet). */
+export function findMantle(c, world, minRise = PLAYER.mantleMin) {
   const P = PLAYER;
   const f = forwardXZ(c.yaw);
   const h = characterHeight(c);
@@ -120,7 +122,7 @@ export function findMantle(c, world) {
     const top = surfaceTop(world, px, pz, c.pos.y + P.mantleMax);
     if (!Number.isFinite(top)) return null; // a tall wall in front
     const rise = top - c.pos.y;
-    if (rise < P.mantleMin) continue;
+    if (rise < minRise) continue;
     // Stand fully on the ledge, a little past its edge.
     const tx = c.pos.x + f.x * (reach + P.radius * 0.6);
     const tz = c.pos.z + f.z * (reach + P.radius * 0.6);
@@ -166,8 +168,12 @@ export function stepCharacter(c, cmd, world, dt, events = []) {
   c.yaw = cmd.yaw;
   c.pitch = clamp(cmd.pitch, -P.maxPitch, P.maxPitch);
 
+  // Holding jump keeps the jump buffer full (hop again on landing), but a mantle needs a fresh press.
+  const jumpPressed = !!cmd.jump && !c.lastJumpCmd;
+  c.lastJumpCmd = !!cmd.jump;
   if (cmd.jump) c.jumpBuffer = P.jumpBuffer;
   else c.jumpBuffer = Math.max(0, c.jumpBuffer - dt);
+  c.mantleBuffer = Math.max(0, c.mantleBuffer - dt);
 
   if (c.mantle) {
     c.aiming = false;
@@ -246,21 +252,26 @@ export function stepCharacter(c, cmd, world, dt, events = []) {
   }
 
   // --- Jump or mantle ---
-  if (c.jumpBuffer > 0) {
-    const ledge = findMantle(c, world);
+  // Space on the ground always jumps. Pressing it again in mid-air climbs a ledge in front;
+  // so does a press while crouched, since a crouched character can't jump.
+  const canJump = (c.onGround || c.airTime < P.coyoteTime) && !c.crouching;
+  if (jumpPressed && !canJump) c.mantleBuffer = P.jumpBuffer;
+  if (c.jumpBuffer > 0 && canJump) {
+    c.jumpBuffer = 0;
+    c.mantleBuffer = 0;
+    c.vel.y = P.jumpSpeed;
+    c.onGround = false;
+    c.airTime = P.coyoteTime; // no double jump via coyote time
+  } else if (c.mantleBuffer > 0 && !canJump) {
+    const ledge = findMantle(c, world, c.onGround ? P.mantleMin : P.mantleMinAir);
     if (ledge) {
       c.jumpBuffer = 0;
+      c.mantleBuffer = 0;
       c.slideTime = 0;
       c.mantle = { from: { ...c.pos }, to: ledge, crouch: ledge.crouch, t: 0, dur: 0.25 + ledge.rise * 0.1 };
       c.vel.x = c.vel.y = c.vel.z = 0;
       stepMantle(c, dt);
       return;
-    }
-    if ((c.onGround || c.airTime < P.coyoteTime) && !c.crouching) {
-      c.jumpBuffer = 0;
-      c.vel.y = P.jumpSpeed;
-      c.onGround = false;
-      c.airTime = P.coyoteTime; // no double jump via coyote time
     }
   }
   c.vel.y = Math.max(c.vel.y - P.gravity * dt, -P.maxFall);

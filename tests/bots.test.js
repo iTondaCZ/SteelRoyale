@@ -92,6 +92,16 @@ test('a bot finds its way around a wall to a chest behind it', () => {
   assert.equal(chest.opened, true);
 });
 
+test('a bot climbs a chest-high ledge it cannot path around', () => {
+  // The ledge spans the whole arena, so walking into it, jumping and pressing jump again is the only way up.
+  // The chest sits 8 m back from the edge: out of reach from the ground.
+  const game = arena([{ minX: -100, minY: 0, minZ: -30, maxX: 100, maxY: 1.5, maxZ: -10 }]);
+  addBot(game, 0, 0, 0);
+  const chest = addChest(game.world, { x: 0, y: 1.5, z: -18, yaw: Math.PI });
+  run(game, 15);
+  assert.equal(chest.opened, true, 'the bot never got up onto the ledge');
+});
+
 test('a bot with shield cells and no enemies tops up its shield', () => {
   const game = arena();
   const bot = addBot(game, 0, 0);

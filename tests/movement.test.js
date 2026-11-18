@@ -63,33 +63,73 @@ test('crouching while sprinting starts a slide that slows to crouch speed', () =
   assert.ok(c.speed <= PLAYER.crouchSpeed + 0.05, `after slide ${c.speed}`);
 });
 
-test('pressing jump at a chest-high ledge mantles on top of it', () => {
+/** A chest-high ledge (face at z = -1) with the character already walked up against it. */
+function atLedge(height = 1.5) {
   const w = flatWorld();
-  w.addBox(box(-2, 0, -4, 2, 1.5, -1)); // ledge face at z = -1
+  w.addBox(box(-2, 0, -12, 2, height, -1)); // deep, so we don't walk off its back
   const c = spawn(w, 0, 0, 0);
-  run(c, w, cmd({ moveZ: 1 }), 0.5); // walk up to the face
-  run(c, w, (i) => cmd({ moveZ: 1, jump: i === 0 }), 1.0);
-  assert.ok(Math.abs(c.pos.y - 1.5) < 0.01, `y=${c.pos.y}`);
-  assert.ok(c.pos.z < -1, 'should be standing on the ledge');
+  run(c, w, cmd({ moveZ: 1 }), 0.5);
+  return { w, c };
+}
+
+/** Press jump on tick 0, release, then press again on tick `again`. */
+const jumpThenPress = (again, o = {}) => (i) => cmd({ moveZ: 1, jump: i === 0 || i === again, ...o });
+
+test('pressing jump at a chest-high ledge jumps instead of mantling', () => {
+  const { w, c } = atLedge();
+  let mantled = false;
+  run(c, w, (i) => {
+    if (c.mantle) mantled = true;
+    return cmd({ moveZ: 1, jump: i === 0 });
+  }, 1.0);
+  assert.equal(mantled, false, 'a single press must not mantle');
+  assert.ok(c.pos.y < 0.01 && c.pos.z > -1, `should be back on the ground in front: y=${c.pos.y} z=${c.pos.z}`);
 });
 
-test('a wall that is too tall cannot be mantled', () => {
-  const w = flatWorld();
-  w.addBox(box(-2, 0, -4, 2, 3.2, -1));
-  const c = spawn(w);
-  run(c, w, cmd({ moveZ: 1 }), 0.5);
-  run(c, w, (i) => cmd({ moveZ: 1, jump: i === 0 }), 1.5);
+test('pressing jump again in mid-air mantles onto the ledge', () => {
+  // Early in the jump, at the top of it, and on the way down.
+  for (const again of [8, 20, 32]) {
+    const { w, c } = atLedge();
+    run(c, w, jumpThenPress(again), 1.2);
+    assert.ok(Math.abs(c.pos.y - 1.5) < 0.01, `second press on tick ${again}: y=${c.pos.y}`);
+    assert.ok(c.pos.z < -1, `second press on tick ${again}: should be standing on the ledge`);
+  }
+});
+
+test('holding jump does not mantle', () => {
+  const { w, c } = atLedge();
+  let mantled = false;
+  run(c, w, () => {
+    if (c.mantle) mantled = true;
+    return cmd({ moveZ: 1, jump: true });
+  }, 1.5);
+  assert.equal(mantled, false);
+  assert.ok(c.pos.z > -1, 'should still be in front of the ledge');
+});
+
+test('a crouched character mantles with a single press (it cannot jump)', () => {
+  const { w, c } = atLedge();
+  run(c, w, (i) => cmd({ moveZ: 1, crouch: true, jump: i === 0 }), 1.0);
+  assert.ok(Math.abs(c.pos.y - 1.5) < 0.01, `y=${c.pos.y}`);
+  assert.ok(c.pos.z < -1);
+});
+
+test('a storey-high wall cannot be mantled, even from the top of a jump', () => {
+  const { w, c } = atLedge(4);
+  let mantled = false;
+  run(c, w, (i) => {
+    if (c.mantle) mantled = true;
+    return jumpThenPress(20)(i);
+  }, 1.5);
+  assert.equal(mantled, false);
   assert.ok(c.pos.y < 0.01);
-  assert.equal(c.mantle, null);
 });
 
 test('no mantle when there is no headroom on top of the ledge', () => {
-  const w = flatWorld();
-  w.addBox(box(-2, 0, -4, 2, 1.5, -1));
-  w.addBox(box(-2, 2.2, -4, 2, 3, -1.2)); // ceiling 0.7 m above the ledge
-  const c = spawn(w);
-  run(c, w, cmd({ moveZ: 1 }), 0.5);
-  run(c, w, (i) => cmd({ moveZ: 1, jump: i === 0 }), 1.0);
+  const { w, c } = atLedge();
+  // A thick ceiling 0.7 m above the ledge, starting just past its edge (so there is no slab top to grab instead).
+  w.addBox(box(-2, 2.2, -4, 2, 6, -1.6));
+  run(c, w, jumpThenPress(12), 1.0);
   assert.ok(c.pos.y < 1.4);
 });
 

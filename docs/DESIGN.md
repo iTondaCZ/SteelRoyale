@@ -60,7 +60,7 @@ A browser battle royale. You and 99 bots start on an island, loot chests for the
 | Action | Key |
 |---|---|
 | Move / sprint | WASD / Shift |
-| Jump, or climb a ledge in front (mantle) | Space |
+| Jump; press again in mid-air to climb a ledge in front (mantle) | Space |
 | Crouch (**hold**); crouching while sprinting slides | Ctrl |
 | Look | Mouse (pointer lock; free-look if the browser refuses) |
 | Shoot / use the selected item | Left mouse |
@@ -86,7 +86,7 @@ A browser battle royale. You and 99 bots start on an island, loot chests for the
 | Bandage | +15 HP, only up to 75 | 3 s | 15 |
 | Medkit | health to 100 | 8 s | 3 |
 | Small Shield | +25 shield, only up to 75 | 2 s | 6 |
-| Big Shield | +50 shield, up to 150 | 5 s | 3 |
+| Big Shield | +75 shield, up to 150 | 5 s | 3 |
 
 - Select the item and hold left mouse. You move at half speed meanwhile, and switching slots cancels it.
 - Using an item that can't help is refused with a message, such as "Shield is above 75".
@@ -141,7 +141,7 @@ Five rarities: Common (gray), Uncommon (green), Rare (blue), Epic (purple), Lege
 - **Step-up:** small ledges up to 0.5 m are climbed automatically.
 - **Crouch** (height 1.15 m, smaller hitbox, spread ×0.6). You can't stand up under a ceiling.
 - **Slide:** crouch while sprinting. It starts at 8.5 m/s and slows to crouch speed over 0.9 s.
-- **Mantle:** press Space facing a ledge 0.6–2.45 m high that has room on top. It climbs on in 0.3–0.5 s, and crouches you if there's only crouch room.
+- **Mantle:** Space on the ground always jumps. Press it again in mid-air, facing a ledge that has room on top, to climb on. Holding Space never mantles: it takes a fresh press. In the air the ledge's top must be 0.15–2.45 m above your feet. Crouched on the ground (where you can't jump), one press mantles ledges 0.6–2.45 m high. It climbs on in 0.25–0.5 s, and crouches you if there's only crouch room. A one-storey wall (4 m) stays out of reach, even from the top of a jump. Stuck bots do the same: jump, then press again 0.1 s later.
 - **Jump forgiveness:** 0.1 s coyote time (you can still jump just after walking off an edge) and a 0.12 s jump buffer (a jump pressed just before landing still counts).
 - **Water** deeper than 0.5 m: ×0.6 speed and no sprinting. The sea inside the map is at most 1.4 m deep.
 - **Hitboxes:** the body capsule ends at the neck (~1.4 m) and the head is a sphere, so headshots register.

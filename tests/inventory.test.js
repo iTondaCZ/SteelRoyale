@@ -111,6 +111,19 @@ test('a bandage takes 3 s, heals 15 up to 75 and is used up', () => {
   assert.equal(c.useSpeedMul, 1);
 });
 
+test('a big shield takes 5 s and gives 75 shield, capped at 150', () => {
+  const w = flatWorld();
+  const c = hero();
+  addItem(c, consumableItem('shieldBig', 2));
+  tick(c, w, cmd({ fire: true }), TICK_DT);
+  tick(c, w, cmd(), 5.1);
+  assert.equal(c.shield, 75);
+  c.shield = 100;
+  tick(c, w, cmd({ fire: true }), TICK_DT);
+  tick(c, w, cmd(), 5.1);
+  assert.equal(c.shield, 150);
+});
+
 test('a bandage is refused above 75 HP and a shield cell at full shield', () => {
   const c = hero();
   c.health = 80;

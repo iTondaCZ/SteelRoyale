@@ -33,7 +33,7 @@ export function createBrain(bot, difficulty, rng) {
     pathGoal: null,
     pathAge: 0,
     needPath: false,
-    stuck: { x: bot.pos.x, z: bot.pos.z, t: 0, count: 0, sidestep: 0, dir: 1 },
+    stuck: { x: bot.pos.x, z: bot.pos.z, t: 0, count: 0, sidestep: 0, dir: 1, regrab: 0 },
     burstOn: false,
     burstTimer: 0,
     strafeDir: 1,
@@ -559,8 +559,10 @@ function checkStuck(bot, ai, dt, wantsToMove) {
     return;
   }
   st.count++;
-  if (st.count === 1) ai.cmd.jump = true; // jump or mantle over it
-  else if (st.count === 2) ai.needPath = true;
+  if (st.count === 1) {
+    ai.cmd.jump = true; // jump, then press again in mid-air to mantle over it
+    st.regrab = 0.1;
+  } else if (st.count === 2) ai.needPath = true;
   else if (st.count === 3) {
     st.sidestep = 0.7;
     st.dir = ai.rng() < 0.5 ? -1 : 1;
@@ -776,6 +778,13 @@ export function botCommand(bot, game, dt) {
     ai.think = THINK_INTERVAL + ai.rng() * 0.05;
     perceive(bot, game);
     decide(bot, game);
+  }
+
+  // The second press of a stuck bot's jump-and-mantle (see checkStuck).
+  const st = ai.stuck;
+  if (st.regrab > 0) {
+    st.regrab -= dt;
+    if (st.regrab <= 0 && !bot.onGround) cmd.jump = true;
   }
 
   switch (ai.state) {
