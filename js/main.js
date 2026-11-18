@@ -116,7 +116,8 @@ function buildSession(mode) {
   const lootView = createLootView(view.scene);
   const fx = createEffects(view.scene);
   const rig = createCameraRig(view.camera, game.world);
-  const storm = game.zone ? createStormView(view.scene) : null;
+  const groundAt = (x, z) => Math.max(map.terrain.heightAt(x, z), map.waterLevel ?? 0);
+  const storm = game.zone ? createStormView(view, { groundAt }) : null;
   input.yaw = game.player.yaw;
   input.pitch = 0;
   hud.setMap(map);
@@ -366,7 +367,7 @@ function update(now) {
 
   handleEvents(game.events.splice(0));
   fx.syncProjectiles(game.world.projectiles, dt);
-  if (session.storm) session.storm.update(game.zone, performance.now() / 1000);
+  if (session.storm) session.storm.update(game.zone, performance.now() / 1000, camPos, dt);
   lootView.update(game.world, camPos, performance.now() / 1000);
 
   view.follow(playerPos.x, playerPos.y, playerPos.z);

@@ -412,7 +412,8 @@ kbd {
 /* ---------- Storm ---------- */
 #storm-tint {
   position: absolute; inset: 0; pointer-events: none; opacity: 0;
-  background: radial-gradient(ellipse at center, rgba(150,60,220,.18) 30%, rgba(110,30,180,.55) 100%);
+  /* The 3D haze does the tinting now; this just darkens the edges of the screen. */
+  background: radial-gradient(ellipse at center, rgba(60,10,100,0) 45%, rgba(60,10,100,.5) 100%);
   transition: opacity .4s;
 }
 #hud.in-storm #storm-tint { opacity: 1; }
