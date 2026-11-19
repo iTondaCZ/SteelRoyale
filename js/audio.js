@@ -4,6 +4,8 @@ export function createAudio() {
   let ctx = null;
   let master = null;
   let noise = null;
+  let volume = 1;
+  const MASTER = 0.45;
 
   function ensure() {
     if (ctx) return ctx;
@@ -11,7 +13,7 @@ export function createAudio() {
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 0.45;
+    master.gain.value = MASTER * volume;
     master.connect(ctx.destination);
     noise = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
     const data = noise.getChannelData(0);
@@ -27,6 +29,11 @@ export function createAudio() {
   }
 
   return {
+    /** 0..1 */
+    setVolume(v) {
+      volume = v;
+      if (master) master.gain.value = MASTER * volume;
+    },
     /** Call from a user gesture (click) so the browser allows audio. */
     unlock() {
       const c = ensure();

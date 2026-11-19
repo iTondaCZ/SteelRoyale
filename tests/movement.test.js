@@ -193,3 +193,145 @@ test('crouched characters have a lower hitbox', () => {
   run(c, w, cmd({ crouch: true }), 0.2);
   assert.equal(w.raycast(headHigh, dir, 50, { ignoreTerrain: true }), null);
 });
+
+// ---------- Chained hops (players only) ----------
+const openWorld = (size = 400) => createWorld(createTerrain({ size, cellSize: 4, heightFn: () => 0 }));
+function spawnKind(w, kind) {
+  const c = createCharacter({ id: 1, name: 'a', kind, pos: { x: 0, y: 0, z: 0 } });
+  run(c, w, cmd(), 0.2);
+  return c;
+}
+/** Put the character in the air, `speed` m/s toward −Z (yaw 0 looks that way). */
+function launch(c, speed) {
+  c.vel.x = 0;
+  c.vel.z = -speed;
+  c.vel.y = PLAYER.jumpSpeed;
+  c.pos.y += 0.01;
+  c.onGround = false;
+  c.airTime = PLAYER.coyoteTime;
+}
+/** Run with a command and return the horizontal speed on every tick a jump starts. */
+function hopSpeeds(c, w, command, seconds) {
+  const speeds = [];
+  const n = Math.round(seconds / TICK_DT);
+  for (let i = 0; i < n; i++) {
+    const wasGround = c.onGround || c.airTime < PLAYER.coyoteTime;
+    const vyBefore = c.vel.y;
+    stepCharacter(c, typeof command === 'function' ? command(i) : command, w, TICK_DT, []);
+    if (wasGround && vyBefore <= 0 && c.vel.y > PLAYER.jumpSpeed * 0.9) speeds.push(c.speed);
+  }
+  return speeds;
+}
+const sprintHop = cmd({ moveZ: 1, sprint: true, jump: true });
+
+test('a player holding jump through landings gets 1.05x faster with every hop', () => {
+  const w = openWorld();
+  const c = spawnKind(w, 'player');
+  run(c, w, cmd({ moveZ: 1, sprint: true }), 1);
+  const speeds = hopSpeeds(c, w, sprintHop, 3.5);
+  assert.ok(speeds.length >= 4, `hops: ${speeds.length}`);
+  assert.ok(Math.abs(speeds[0] - PLAYER.sprintSpeed) < 0.05, `first hop at sprint speed: ${speeds[0]}`);
+  for (let i = 1; i < 4; i++) {
+    const ratio = speeds[i] / speeds[i - 1];
+    assert.ok(Math.abs(ratio - 1.05) < 0.005, `hop ${i + 1}: ${ratio.toFixed(3)}x`);
+  }
+});
+
+test('chained hops have no top speed', () => {
+  const w = openWorld(1400);
+  const c = spawnKind(w, 'player');
+  run(c, w, cmd({ moveZ: 1, sprint: true }), 1);
+  const speeds = hopSpeeds(c, w, sprintHop, 24);
+  assert.ok(speeds.at(-1) > 30, `only ${speeds.at(-1).toFixed(1)} m/s after ${speeds.length} hops`);
+  assert.ok(speeds.at(-1) > speeds.at(-2), 'still speeding up');
+});
+
+test('letting go of W while hopping does not slow you down', () => {
+  const w = openWorld();
+  const c = spawnKind(w, 'player');
+  run(c, w, cmd({ moveZ: 1 }), 1);
+  run(c, w, cmd({ moveZ: 1, jump: true }), 1);
+  const before = c.speed;
+  run(c, w, cmd({ jump: true }), 3);
+  assert.ok(c.speed >= before - 1e-6, `${before.toFixed(2)} → ${c.speed.toFixed(2)}`);
+});
+
+test('letting go of jump ends the chain and the speed drops back', () => {
+  const w = openWorld();
+  const c = spawnKind(w, 'player');
+  run(c, w, cmd({ moveZ: 1, sprint: true }), 1);
+  hopSpeeds(c, w, sprintHop, 4);
+  assert.ok(c.speed > PLAYER.sprintSpeed * 1.15, `boosted to ${c.speed}`);
+  run(c, w, cmd({ moveZ: 1, sprint: true }), 1.5);
+  assert.ok(c.onGround);
+  assert.ok(c.speed <= PLAYER.sprintSpeed + 1e-6, `still at ${c.speed}`);
+});
+
+test('bots holding jump never speed up', () => {
+  const w = openWorld();
+  const c = spawnKind(w, 'bot');
+  run(c, w, cmd({ moveZ: 1, sprint: true }), 1);
+  const speeds = hopSpeeds(c, w, sprintHop, 3.5);
+  assert.ok(speeds.length >= 4);
+  for (const s of speeds) assert.ok(s <= PLAYER.sprintSpeed + 1e-6, `bot hop at ${s}`);
+});
+
+test('running into a wall mid-chain stops the boosted speed', () => {
+  const w = openWorld();
+  const c = spawnKind(w, 'player');
+  run(c, w, cmd({ moveZ: 1, sprint: true }), 1);
+  hopSpeeds(c, w, sprintHop, 4);
+  const z = c.pos.z;
+  w.addBox(box(-10, -1, z - 6, 10, 10, z - 5)); // a tall wall straight ahead
+  run(c, w, sprintHop, 2);
+  assert.ok(c.pos.z > z - 5, 'did not pass through the wall');
+  assert.ok(c.speed < PLAYER.walkSpeed, `still moving at ${c.speed}`);
+});
+
+test('even a very fast player cannot pass through a thin wall', () => {
+  const w = openWorld();
+  w.addBox(box(-10, -1, -6, 10, 10, -6 + 0.25)); // a 0.25 m wall 6 m ahead
+  const c = spawnKind(w, 'player');
+  launch(c, 90); // 1.5 m per tick
+  run(c, w, cmd({ jump: true }), 1);
+  assert.ok(c.pos.z > -6 + 0.25, `went through to z ${c.pos.z.toFixed(2)}`);
+  assert.ok(c.speed < 1, `still moving at ${c.speed}`);
+});
+
+/** Build a chain heading −Z, then hop on with `command(i)`; returns speed and heading afterwards. */
+function steerAfterChain(command, seconds) {
+  const w = openWorld(600);
+  const c = spawnKind(w, 'player');
+  run(c, w, cmd({ moveZ: 1, sprint: true }), 1);
+  hopSpeeds(c, w, sprintHop, 3);
+  const before = c.speed;
+  const speeds = hopSpeeds(c, w, command, seconds);
+  return { c, before, speeds, heading: Math.atan2(c.vel.x, -c.vel.z) }; // 0 = −Z, +π/2 = +X
+}
+const deg = (r) => (r * 180) / Math.PI;
+
+test('turning the camera 90° mid-chain turns the hop without losing speed', () => {
+  // yaw −π/2 looks toward +X
+  const { c, before, speeds, heading } = steerAfterChain(cmd({ moveZ: 1, sprint: true, jump: true, yaw: -Math.PI / 2 }), 0.8);
+  assert.ok(Math.abs(deg(heading) - 90) < 3, `heading ${deg(heading).toFixed(1)}°`);
+  assert.ok(c.speed >= before - 1e-6, `slowed from ${before.toFixed(2)} to ${c.speed.toFixed(2)}`);
+  assert.ok(speeds.length >= 1 && speeds.at(-1) > before, 'and it keeps speeding up');
+});
+
+test('turning all the way around mid-chain keeps the speed', () => {
+  const { c, before, heading } = steerAfterChain(cmd({ moveZ: 1, sprint: true, jump: true, yaw: Math.PI }), 1.2);
+  assert.ok(Math.abs(Math.abs(deg(heading)) - 180) < 3, `heading ${deg(heading).toFixed(1)}°`);
+  assert.ok(c.speed >= before - 1e-6, `slowed from ${before.toFixed(2)} to ${c.speed.toFixed(2)}`);
+});
+
+test('strafing alone curves a chained hop without slowing it', () => {
+  const { c, before, heading } = steerAfterChain(cmd({ moveX: 1, jump: true }), 0.15);
+  assert.ok(deg(heading) > 20, `curved only ${deg(heading).toFixed(1)}°`);
+  assert.ok(c.speed >= before - 1e-6, `slowed from ${before.toFixed(2)} to ${c.speed.toFixed(2)}`);
+});
+
+test('with no keys but jump, a chained hop coasts straight on', () => {
+  const { c, before, heading } = steerAfterChain(cmd({ jump: true }), 0.6);
+  assert.ok(Math.abs(deg(heading)) < 1, `drifted ${deg(heading).toFixed(1)}°`);
+  assert.ok(c.speed >= before - 1e-6);
+});

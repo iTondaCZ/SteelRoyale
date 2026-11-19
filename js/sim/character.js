@@ -21,6 +21,7 @@ export function createCharacter({ id, name, kind = 'bot', pos = { x: 0, y: 0, z:
     alive: true,
     weapon: null,
     inventory: { slots: new Array(INVENTORY.slots).fill(null), selected: 0 },
+    slotPrefs: null, // { itemType: slotIndex }: where pickups go when that slot is empty (player setting)
     ammo: { light: 0, medium: 0, heavy: 0, shells: 0, rockets: 0 },
     equipLeft: 0,
     useItem: null,
@@ -41,6 +42,7 @@ export function createCharacter({ id, name, kind = 'bot', pos = { x: 0, y: 0, z:
     mantleBuffer: 0,
     lastJumpCmd: false,
     lastCrouchCmd: false,
+    hopSpeed: 0, // speed carried by a chain of held-jump hops (players only), 0 = no chain
     useSpeedMul: 1,
     stats: { kills: 0, damageDealt: 0 },
   };
@@ -174,6 +176,7 @@ export function stepCharacter(c, cmd, world, dt, events = []) {
   if (cmd.jump) c.jumpBuffer = P.jumpBuffer;
   else c.jumpBuffer = Math.max(0, c.jumpBuffer - dt);
   c.mantleBuffer = Math.max(0, c.mantleBuffer - dt);
+  if (!cmd.jump || c.kind !== 'player') c.hopSpeed = 0; // the chain needs jump held the whole time
 
   if (c.mantle) {
     c.aiming = false;
@@ -239,16 +242,31 @@ export function stepCharacter(c, cmd, world, dt, events = []) {
     // forward = (−sin, −cos), right = (cos, −sin)
     const wx = (-s * mz + co * mx) * speed;
     const wz = (-co * mz - s * mx) * speed;
-    const accel = (c.onGround ? P.accelGround : P.accelAir) * dt;
-    let dvx = wx - c.vel.x;
-    let dvz = wz - c.vel.z;
-    const dl = Math.hypot(dvx, dvz);
-    if (dl > accel) {
-      dvx *= accel / dl;
-      dvz *= accel / dl;
+    if (c.hopSpeed > 0) {
+      // Mid-chain: the speed holds, and the direction swings toward where you steer.
+      // (No keys: coast straight on. To slow down, let go of jump.)
+      const wish = Math.hypot(wx, wz);
+      if (wish > c.hopSpeed) c.hopSpeed = Math.min(wish, c.hopSpeed + P.accelAir * dt);
+      let heading = Math.atan2(c.vel.z, c.vel.x);
+      if (wish > 0) {
+        const want = Math.atan2(wz, wx);
+        const turn = Math.atan2(Math.sin(want - heading), Math.cos(want - heading));
+        heading += clamp(turn, -P.hopTurnRate * dt, P.hopTurnRate * dt);
+      }
+      c.vel.x = Math.cos(heading) * c.hopSpeed;
+      c.vel.z = Math.sin(heading) * c.hopSpeed;
+    } else {
+      const accel = (c.onGround ? P.accelGround : P.accelAir) * dt;
+      let dvx = wx - c.vel.x;
+      let dvz = wz - c.vel.z;
+      const dl = Math.hypot(dvx, dvz);
+      if (dl > accel) {
+        dvx *= accel / dl;
+        dvz *= accel / dl;
+      }
+      c.vel.x += dvx;
+      c.vel.z += dvz;
     }
-    c.vel.x += dvx;
-    c.vel.z += dvz;
   }
 
   // --- Jump or mantle ---
@@ -256,43 +274,67 @@ export function stepCharacter(c, cmd, world, dt, events = []) {
   // so does a press while crouched, since a crouched character can't jump.
   const canJump = (c.onGround || c.airTime < P.coyoteTime) && !c.crouching;
   if (jumpPressed && !canJump) c.mantleBuffer = P.jumpBuffer;
+  let jumped = false;
   if (c.jumpBuffer > 0 && canJump) {
     c.jumpBuffer = 0;
     c.mantleBuffer = 0;
     c.vel.y = P.jumpSpeed;
     c.onGround = false;
     c.airTime = P.coyoteTime; // no double jump via coyote time
+    jumped = true;
+    if (cmd.jump && c.kind === 'player') {
+      // Jump held: the first hop starts a chain at the current speed, every hop after it speeds up.
+      const sp = Math.hypot(c.vel.x, c.vel.z);
+      if (c.hopSpeed > 0 && sp > 1e-3) {
+        const target = sp * P.hopBoost;
+        c.vel.x *= target / sp;
+        c.vel.z *= target / sp;
+        c.hopSpeed = target;
+      } else {
+        c.hopSpeed = sp;
+      }
+    }
   } else if (c.mantleBuffer > 0 && !canJump) {
     const ledge = findMantle(c, world, c.onGround ? P.mantleMin : P.mantleMinAir);
     if (ledge) {
       c.jumpBuffer = 0;
       c.mantleBuffer = 0;
       c.slideTime = 0;
+      c.hopSpeed = 0;
       c.mantle = { from: { ...c.pos }, to: ledge, crouch: ledge.crouch, t: 0, dur: 0.25 + ledge.rise * 0.1 };
       c.vel.x = c.vel.y = c.vel.z = 0;
       stepMantle(c, dt);
       return;
     }
   }
+  if (c.onGround && !jumped) c.hopSpeed = 0; // stayed on the ground: the chain is over
   c.vel.y = Math.max(c.vel.y - P.gravity * dt, -P.maxFall);
 
   const wasOnGround = c.onGround;
   const step = wasOnGround ? P.stepHeight : 0.05;
   const h = characterHeight(c);
 
-  // Horizontal move + wall collision
-  c.pos.x += c.vel.x * dt;
-  c.pos.z += c.vel.z * dt;
+  // Horizontal move + wall collision, in short steps when moving fast so walls can't be skipped.
   const edge = world.terrain.size / 2 - P.radius;
-  if (c.pos.x < -edge || c.pos.x > edge) {
-    c.pos.x = clamp(c.pos.x, -edge, edge);
-    c.vel.x = 0;
+  const steps = Math.max(1, Math.ceil((Math.hypot(c.vel.x, c.vel.z) * dt) / P.maxSubstep));
+  for (let i = 0; i < steps; i++) {
+    c.pos.x += (c.vel.x * dt) / steps;
+    c.pos.z += (c.vel.z * dt) / steps;
+    if (c.pos.x < -edge || c.pos.x > edge) {
+      c.pos.x = clamp(c.pos.x, -edge, edge);
+      c.vel.x = 0;
+    }
+    if (c.pos.z < -edge || c.pos.z > edge) {
+      c.pos.z = clamp(c.pos.z, -edge, edge);
+      c.vel.z = 0;
+    }
+    resolveHorizontal(c, world, step);
   }
-  if (c.pos.z < -edge || c.pos.z > edge) {
-    c.pos.z = clamp(c.pos.z, -edge, edge);
-    c.vel.z = 0;
+  if (c.hopSpeed > 0) {
+    // Walls take the speed away: grazing one keeps what's left, hitting one ends the chain.
+    const left = Math.hypot(c.vel.x, c.vel.z);
+    c.hopSpeed = left < c.hopSpeed * 0.5 ? 0 : Math.min(c.hopSpeed, left);
   }
-  resolveHorizontal(c, world, step);
 
   // Vertical move: find the ground (terrain or a box top) and any ceiling.
   const yBefore = c.pos.y;

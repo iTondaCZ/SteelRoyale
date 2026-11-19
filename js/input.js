@@ -30,6 +30,10 @@ export function createInput(element, { sensitivity = 0.0022, now = () => perform
     yaw: 0,
     pitch: 0,
     sensitivity,
+    /** Multiplier on mouse turning while right mouse (aim) is held. */
+    aimSensitivity: 1,
+    /** Mouse down looks up. */
+    invertY: false,
     /** True while the game receives input. */
     active: false,
     /** 'locked' | 'free' | null */
@@ -251,8 +255,9 @@ export function createInput(element, { sensitivity = 0.0022, now = () => perform
 
   window.addEventListener('mousemove', (e) => {
     if (!input.active || input.menuOpen) return;
-    input.yaw -= (e.movementX || 0) * input.sensitivity;
-    input.pitch -= (e.movementY || 0) * input.sensitivity;
+    const k = input.sensitivity * (buttons.has(2) ? input.aimSensitivity : 1);
+    input.yaw -= (e.movementX || 0) * k;
+    input.pitch -= (e.movementY || 0) * k * (input.invertY ? -1 : 1);
     if (input.pitch > PLAYER.maxPitch) input.pitch = PLAYER.maxPitch;
     if (input.pitch < -PLAYER.maxPitch) input.pitch = -PLAYER.maxPitch;
   });

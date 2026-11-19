@@ -259,6 +259,10 @@ export function createHud() {
       el.hud.classList.toggle('hidden', !visible);
     },
 
+    showFps(on) {
+      el.fps.classList.toggle('hidden', !on);
+    },
+
     setMap(map) {
       mapRef = map;
       mapImage = renderMapImage(map, 1024);

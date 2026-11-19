@@ -20,7 +20,9 @@ export const emptyCommand = () => ({
   reload: false, interact: false, drop: false, slot: -1, slotDelta: 0,
 });
 
-export function createGame({ mode = 'training', seed = 7, players = 100, difficulty = 'normal', playerName = 'You' } = {}) {
+export function createGame({
+  mode = 'training', seed = 7, players = 100, difficulty = 'normal', playerName = 'You', slotPrefs = null,
+} = {}) {
   const rng = createRng((seed * 2654435761) >>> 0);
   let nextId = 1;
   const game = {
@@ -56,6 +58,7 @@ export function createGame({ mode = 'training', seed = 7, players = 100, difficu
     game.zone = createZone({ size, terrain: game.map.terrain, rng: createRng(seed + 5) });
     const spawns = pickSpawnPoints(game.map, players, createRng(seed + 99));
     game.player = createCharacter({ id: nextId++, name: playerName, kind: 'player', pos: spawns[0], yaw: spawns[0].yaw });
+    game.player.slotPrefs = slotPrefs;
     game.world.characters.set(game.player.id, game.player);
     // Unique names: shuffled list first, then the same names with a number ("Rusty2").
     const names = [...BOT_NAMES];
@@ -74,7 +77,7 @@ export function createGame({ mode = 'training', seed = 7, players = 100, difficu
     game.alive = players;
     game.totalPlayers = players;
   } else {
-    setupTraining(game, seed, () => nextId++);
+    setupTraining(game, seed, () => nextId++, slotPrefs);
   }
   for (const c of game.world.characters.values()) c.onGround = true;
 
@@ -176,12 +179,13 @@ function handleEvent(game, e) {
 
 // ---------- Training range ----------
 
-function setupTraining(game, seed, newId) {
+function setupTraining(game, seed, newId, slotPrefs) {
   const map = createTrainingMap(seed);
   game.map = map;
   game.world = map.world;
   const world = map.world;
   const player = createCharacter({ id: newId(), name: 'You', kind: 'player', pos: map.spawn, yaw: map.spawn.yaw });
+  player.slotPrefs = slotPrefs;
   addItem(player, createWeapon('ar', 'common'));
   addItem(player, createWeapon('shotgun', 'rare'));
   addItem(player, createWeapon('sniper', 'epic'));

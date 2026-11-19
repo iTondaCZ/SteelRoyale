@@ -260,3 +260,60 @@ test('tickInventory applies queued menu actions in order', () => {
   assert.equal(c.inventory.slots[1], null);
   assert.equal(w.loot.items.size, 1);
 });
+
+// ---------- Preferred slots (settings: "put pickups in their own slot") ----------
+const PREFS = { ar: 0, shotgun: 1, smg: 2, sniper: 2, rocket: 2, bandage: 3, medkit: 3, shieldSmall: 4, shieldBig: 4 };
+
+test('with preferred slots a pickup goes to its own slot when that slot is empty', () => {
+  const c = hero();
+  c.slotPrefs = PREFS;
+  addItem(c, consumableItem('shieldSmall', 3));
+  addItem(c, createWeapon('shotgun', 'common'));
+  assert.equal(c.inventory.slots[4].type, 'shieldSmall');
+  assert.equal(c.inventory.slots[1].type, 'shotgun');
+  assert.equal(c.inventory.slots[0], null);
+  assert.equal(c.weapon, null, 'nothing new is put in your hands');
+  addItem(c, createWeapon('ar', 'rare'));
+  assert.equal(c.inventory.slots[0].type, 'ar');
+  assert.equal(c.weapon.type, 'ar', 'landing in the selected slot equips it');
+});
+
+test('when the preferred slot is taken the pickup falls back to the usual empty slot', () => {
+  const c = hero();
+  c.slotPrefs = PREFS;
+  addItem(c, createWeapon('sniper', 'rare'));
+  addItem(c, createWeapon('rocket', 'epic'));
+  assert.equal(c.inventory.slots[2].type, 'sniper');
+  assert.equal(c.inventory.slots[0].type, 'rocket', 'slot 3 is taken, so it lands in the selected empty slot');
+});
+
+test('preferred consumables top up existing stacks first, then use their own slot', () => {
+  const c = hero();
+  c.slotPrefs = PREFS;
+  c.inventory.slots[1] = consumableItem('bandage', 10);
+  addItem(c, consumableItem('bandage', 10));
+  assert.equal(c.inventory.slots[1].count, CONSUMABLES.bandage.stack);
+  assert.equal(c.inventory.slots[3].type, 'bandage');
+  assert.equal(c.inventory.slots[3].count, 20 - CONSUMABLES.bandage.stack);
+  assert.equal(c.inventory.slots[0], null);
+});
+
+test('items without a preference, and characters without preferences, fill slots as before', () => {
+  const c = hero();
+  c.slotPrefs = PREFS;
+  addItem(c, createWeapon('pistol', 'common'));
+  assert.equal(c.inventory.slots[0].type, 'pistol');
+  const b = hero();
+  addItem(b, consumableItem('shieldSmall', 3));
+  assert.equal(b.inventory.slots[0].type, 'shieldSmall');
+});
+
+test('picking an item up from the ground uses its preferred slot', () => {
+  const w = flatWorld();
+  const c = hero();
+  c.slotPrefs = PREFS;
+  const loot = spawnLoot(w, consumableItem('medkit', 1), { x: 0, y: 0, z: 0 });
+  pickUpLoot(c, w, loot.id, []);
+  assert.equal(c.inventory.slots[3].type, 'medkit');
+  assert.equal(w.loot.items.size, 0);
+});

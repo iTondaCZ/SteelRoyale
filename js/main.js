@@ -17,50 +17,28 @@ import { createAudio } from './audio.js';
 import { createHud } from './ui/hud.js';
 import { createInventoryUI } from './ui/inventory.js';
 import { createHoldToggle } from './hold-toggle.js';
+import { createLobby } from './render/lobby.js';
+import { createMenu } from './ui/menu.js';
+import { loadSettings, saveSettings, slotPrefsOf } from './settings.js';
 
 const $ = (s) => document.querySelector(s);
 const container = $('#game');
 const overlay = $('#overlay');
-const overlaySub = $('#overlay-sub');
-const menu = $('#menu');
-const playBtn = $('#play');
-const trainingBtn = $('#training');
-const loading = $('#loading');
 const endscreen = $('#endscreen');
 const modeHint = $('#mode-hint');
 
-// ---------- Settings (URL first, then remembered choices) ----------
+// ---------- Settings (remembered in localStorage; the URL can pick players and difficulty) ----------
 const params = new URLSearchParams(location.search);
-const stored = (() => {
+const storage = (() => {
   try {
-    return JSON.parse(localStorage.getItem('steelroyale.settings') || '{}');
+    return window.localStorage;
   } catch {
-    return {};
+    return null;
   }
 })();
-const settings = {
-  players: MATCH.playerCounts.includes(Number(params.get('players'))) ? Number(params.get('players')) : stored.players || 100,
-  difficulty: ['easy', 'normal', 'hard'].includes(params.get('difficulty')) ? params.get('difficulty') : stored.difficulty || 'normal',
-};
-const saveSettings = () => {
-  try {
-    localStorage.setItem('steelroyale.settings', JSON.stringify(settings));
-  } catch {
-    /* private mode: fine, just not remembered */
-  }
-};
-for (const seg of document.querySelectorAll('.seg')) {
-  const name = seg.dataset.name;
-  const mark = () => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', String(settings[name]) === b.dataset.value));
-  seg.addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    settings[name] = name === 'players' ? Number(b.dataset.value) : b.dataset.value;
-    saveSettings();
-    mark();
-  });
-  mark();
-}
+let settings = loadSettings(storage);
+if (MATCH.playerCounts.includes(Number(params.get('players')))) settings = { ...settings, players: Number(params.get('players')) };
+if (['easy', 'normal', 'hard'].includes(params.get('difficulty'))) settings = { ...settings, difficulty: params.get('difficulty') };
 const urlFor = (mode) => `?mode=${mode}&players=${settings.players}&difficulty=${settings.difficulty}&auto=1`;
 
 // Ctrl is the crouch key, and the browser's Ctrl+W ("close tab") can't be blocked by a page.
@@ -81,6 +59,10 @@ const view = createRenderer(container);
 const input = createInput(view.renderer.domElement);
 const audio = createAudio();
 const hud = createHud();
+const lobby = createLobby(view);
+const BASE_SENSITIVITY = input.sensitivity;
+let fpsLimit = 0;
+let session = null;
 // The hotbar doubles as the inventory: hold Tab and it grows on the right side, editable.
 const inventoryUI = createInventoryUI({
   loadout: $('#loadout'),
@@ -103,11 +85,68 @@ input.onMenuChange((open) => {
   inventoryUI.setOpen(open);
   if (open) closeMap();
 });
-let session = null;
+
+/** Push the settings into every system (also mid-match, from the pause menu). */
+function applySettings(s) {
+  view.setQuality(s, [lobby.scene]);
+  lobby.setShadows(s.shadows !== 'off');
+  lobby.setSkin(s.skin);
+  input.sensitivity = BASE_SENSITIVITY * s.sensitivity;
+  input.aimSensitivity = s.aimSensitivity;
+  input.invertY = s.invertY;
+  audio.setVolume(s.volume);
+  hud.showFps(s.showFps);
+  fpsLimit = s.maxFps;
+  if (session) {
+    session.rig.setFov(s.fov);
+    session.game.player.slotPrefs = slotPrefsOf(s);
+  }
+}
+
+const menu = createMenu({
+  root: overlay,
+  settings,
+  onChange: (s) => {
+    settings = s;
+    saveSettings(storage, s);
+    applySettings(s);
+  },
+  onPlay: () => startPlaying('match'),
+  onTraining: () => startPlaying('training'),
+  onResume: () => startPlaying(session ? session.game.mode : 'match'),
+  onMainMenu: () => leavePage(location.pathname),
+});
+applySettings(settings);
+
+// Drag on the stage (right side of the main menu) to turn the character.
+const stage = $('#stage-drag');
+let dragX = null;
+let dragT = 0;
+stage.addEventListener('pointerdown', (e) => {
+  dragX = e.clientX;
+  dragT = performance.now();
+  stage.setPointerCapture(e.pointerId);
+  stage.classList.add('dragging');
+});
+stage.addEventListener('pointermove', (e) => {
+  if (dragX === null) return;
+  const now = performance.now();
+  lobby.drag(e.clientX - dragX, (now - dragT) / 1000);
+  dragX = e.clientX;
+  dragT = now;
+});
+const endDrag = () => {
+  dragX = null;
+  lobby.release();
+  stage.classList.remove('dragging');
+};
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
 
 function buildSession(mode) {
   const seed = mode === 'match' ? Math.floor(Math.random() * 1e9) : 7;
-  const game = createGame({ mode, seed, players: settings.players, difficulty: settings.difficulty });
+  const game = createGame({ mode, seed, players: settings.players, difficulty: settings.difficulty, slotPrefs: slotPrefsOf(settings) });
+  game.player.skin = settings.skin;
   const { map } = game;
   const surfaceAt = map.surface ? (i, j) => map.surface[j * map.terrain.cols + i] : trainingSurface(map);
   view.scene.add(createTerrainMesh(map.terrain, { surfaceAt, waterLevel: map.waterLevel }));
@@ -116,6 +155,7 @@ function buildSession(mode) {
   const lootView = createLootView(view.scene);
   const fx = createEffects(view.scene);
   const rig = createCameraRig(view.camera, game.world);
+  rig.setFov(settings.fov);
   const groundAt = (x, z) => Math.max(map.terrain.heightAt(x, z), map.waterLevel ?? 0);
   const storm = game.zone ? createStormView(view, { groundAt }) : null;
   input.yaw = game.player.yaw;
@@ -154,14 +194,10 @@ async function ensureSession(mode) {
     leavePage(urlFor(mode));
     return false;
   }
-  loading.textContent = mode === 'match' ? 'Generating the island…' : 'Building the range…';
-  playBtn.disabled = true;
-  trainingBtn.disabled = true;
+  menu.setBusy(true, mode === 'match' ? 'Generating the island…' : 'Building the range…');
   await nextFrame();
   session = buildSession(mode);
-  loading.textContent = '';
-  playBtn.disabled = false;
-  trainingBtn.disabled = false;
+  menu.setBusy(false);
   return true;
 }
 
@@ -169,14 +205,15 @@ async function startPlaying(mode) {
   audio.unlock();
   if (!(await ensureSession(mode))) return;
   const result = await input.start();
-  if (result === 'paused') overlaySub.textContent = 'Click again to resume';
+  if (result === 'paused') menu.setContext('game', { title: 'Paused', sub: 'Click again to resume', action: 'Resume' });
 }
 
-playBtn.addEventListener('click', () => startPlaying(session ? session.game.mode : 'match'));
-trainingBtn.addEventListener('click', () => {
-  if (session) leavePage(location.pathname); // acts as "Main menu" while paused
-  else startPlaying('training');
-});
+/** What the pause screen says about the match. */
+function matchStatus() {
+  const g = session.game;
+  return g.mode === 'match' ? `${g.alive} of ${g.totalPlayers} players left` : 'Training mode';
+}
+
 $('#again').addEventListener('click', () => leavePage(urlFor(session ? session.game.mode : 'match')));
 $('#to-menu').addEventListener('click', () => leavePage(location.pathname));
 
@@ -186,13 +223,10 @@ input.onActiveChange((active, mode) => {
   hud.show(!!session);
   if (active) {
     session.started = true;
-    menu.classList.add('hidden');
     modeHint.classList.toggle('hidden', mode !== 'free');
   } else if (session) {
     closeMap();
-    overlaySub.textContent = 'Paused';
-    playBtn.textContent = 'Resume';
-    trainingBtn.textContent = 'Main menu';
+    menu.setContext('game', { title: 'Paused', sub: matchStatus(), action: 'Resume' });
   }
 });
 input.onKeyUp((code) => {
@@ -308,8 +342,16 @@ function renderPos(c) {
 const playerView = { yaw: 0, pitch: 0 };
 const otherView = { yaw: 0, pitch: 0 };
 
+// Frame rate limit (setting): skip animation frames until the next one is due.
+let lastDrawn = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (fpsLimit > 0) {
+    const interval = 1000 / fpsLimit;
+    const elapsed = now - lastDrawn;
+    if (elapsed < interval - 1) return;
+    lastDrawn = elapsed > interval * 2 ? now : lastDrawn + interval;
+  }
   update(now);
 }
 
@@ -317,7 +359,9 @@ function update(now) {
   const dt = Math.min(0.1, Math.max(0, (now - lastTime) / 1000));
   lastTime = now;
   if (!session) {
-    view.render();
+    // Main menu: the character on its turntable.
+    lobby.update(dt);
+    lobby.render(view.renderer);
     return;
   }
   const { game, crowd, lootView, fx, rig } = session;
@@ -348,6 +392,7 @@ function update(now) {
     crouching: player.crouching,
     scopeFov,
     sprinting: player.sprinting,
+    speed: player.speed,
   });
   camPos.copy(view.camera.position);
 
@@ -393,16 +438,16 @@ requestAnimationFrame(frame);
 // ---------- Ready ----------
 if (params.get('auto') === '1') {
   const mode = params.get('mode') === 'training' ? 'training' : 'match';
-  menu.classList.add('hidden');
+  menu.setContext('game', mode === 'match'
+    ? { title: 'Ready to drop', sub: '', action: 'Drop in' }
+    : { title: 'Training mode', sub: '', action: 'Start' });
   ensureSession(mode).then(() => {
-    overlaySub.textContent = mode === 'match' ? `${settings.players} players · ${settings.difficulty} bots` : 'Training range';
-    playBtn.textContent = 'Click to drop in';
-    trainingBtn.textContent = 'Main menu';
+    const skill = { easy: 'low', normal: 'medium', hard: 'high' }[settings.difficulty];
+    menu.setSub(mode === 'match' ? `${settings.players} players, ${skill} enemy skill` : 'Dummies, chests and every weapon to try.');
     hud.show(false);
   });
 } else {
-  playBtn.disabled = false;
-  trainingBtn.disabled = false;
+  menu.setBusy(false);
 }
 
 // steel.update(t) runs one frame by hand (useful when the tab isn't animating).
@@ -413,8 +458,13 @@ window.steel = {
   get session() {
     return session;
   },
+  get settings() {
+    return settings;
+  },
   input,
   view,
+  lobby,
+  menu,
   THREE,
   update,
   startPlaying,
@@ -422,4 +472,3 @@ window.steel = {
 
 // Everything is set up (see js/boot.js for startup errors).
 window.__steelReady = true;
-loading.textContent = params.get('auto') === '1' ? loading.textContent : '';

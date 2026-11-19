@@ -67,3 +67,11 @@ test('killing a dummy emits a kill event and it respawns after the respawn time'
   assert.equal(dummy.alive, true);
   assert.equal(dummy.health, 100);
 });
+
+test('the player takes slot preferences from the game options; bots keep none', () => {
+  const game = createGame({ seed: 7, slotPrefs: { shieldSmall: 4, ar: 0 } });
+  assert.deepEqual(game.player.slotPrefs, { shieldSmall: 4, ar: 0 });
+  assert.equal(game.player.inventory.slots[4].type, 'shieldSmall');
+  const plain = createGame({ seed: 7 });
+  assert.equal(plain.player.slotPrefs, null);
+});

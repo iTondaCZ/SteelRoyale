@@ -73,48 +73,87 @@
     </div>
   </div>
 
-  <div id="overlay" class="screen">
-    <div class="panel">
-      <h1>STEEL<span>ROYALE</span></h1>
-      <p class="sub" id="overlay-sub">Battle royale · offline</p>
-      <div id="menu">
+  <div id="overlay" class="screen menu in-lobby">
+    <div id="stage-drag" class="stage-drag" aria-hidden="true"></div>
+
+    <h1 class="logo-big"><span class="steel">STEEL</span> <span class="royale">ROYALE</span></h1>
+
+    <button id="open-settings" type="button" class="gear-btn" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" fill="currentColor" d="M20.60 12.00 L23.13 13.23 L22.65 15.46 L19.84 15.54 L18.08 18.08 L19.00 20.74 L17.08 21.98 L15.04 20.04 L12.00 20.60 L10.77 23.13 L8.54 22.65 L8.46 19.84 L5.92 18.08 L3.26 19.00 L2.02 17.08 L3.96 15.04 L3.40 12.00 L0.87 10.77 L1.35 8.54 L4.16 8.46 L5.92 5.92 L5.00 3.26 L6.92 2.02 L8.96 3.96 L12.00 3.40 L13.23 0.87 L15.46 1.35 L15.54 4.16 L18.08 5.92 L20.74 5.00 L21.98 6.92 L20.04 8.96 Z M15.6 12 A3.6 3.6 0 1 0 8.4 12 A3.6 3.6 0 1 0 15.6 12 Z"/></svg>
+    </button>
+
+    <section class="menu-view view-play" data-view="play">
+      <div class="plate match-card">
         <div class="option-row">
-          <span class="label">Players</span>
-          <div class="seg" data-name="players">
+          <span class="label">Lobby size</span>
+          <div class="seg" data-name="players" role="radiogroup" aria-label="Lobby size">
             <button type="button" data-value="25">25</button>
             <button type="button" data-value="50">50</button>
             <button type="button" data-value="100">100</button>
           </div>
         </div>
         <div class="option-row">
-          <span class="label">Bots</span>
-          <div class="seg" data-name="difficulty">
-            <button type="button" data-value="easy">Easy</button>
-            <button type="button" data-value="normal">Normal</button>
-            <button type="button" data-value="hard">Hard</button>
+          <span class="label">Enemy skill</span>
+          <div class="seg" data-name="difficulty" role="radiogroup" aria-label="Enemy skill">
+            <button type="button" data-value="easy">Low</button>
+            <button type="button" data-value="normal">Medium</button>
+            <button type="button" data-value="hard">High</button>
           </div>
         </div>
+        <button id="play" type="button" class="play-btn" disabled>PLAY!</button>
+        <div class="card-foot">
+          <button id="training" type="button" class="secondary small" disabled>Training mode</button>
+          <p class="loading" id="loading">Loading…</p>
+        </div>
       </div>
-      <div class="buttons">
-        <button id="play" type="button" disabled>Play</button>
-        <button id="training" type="button" class="secondary" disabled>Training range</button>
+    </section>
+
+    <section class="menu-view view-locker" data-view="locker" hidden>
+      <div class="plate locker-panel">
+        <div class="panel-head">
+          <h2>Locker</h2>
+          <button id="locker-back" type="button" class="secondary small">Back</button>
+        </div>
+        <div id="skin-grid" class="skin-grid" role="radiogroup" aria-label="Skins"></div>
       </div>
-      <p class="loading" id="loading">Loading…</p>
-      <ul class="controls">
-        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</li>
-        <li><kbd>Shift</kbd> Sprint</li>
-        <li><kbd>Space</kbd> Jump (again in mid-air to mantle)</li>
-        <li><kbd>Ctrl</kbd> Hold to crouch (slide)</li>
-        <li><kbd>LMB</kbd> Shoot / use item</li>
-        <li><kbd>RMB</kbd> Aim</li>
-        <li><kbd>E</kbd> Pick up / open</li>
-        <li><kbd>1</kbd>–<kbd>5</kbd> Slots</li>
-        <li><kbd>Tab</kbd> Inventory (tap or hold)</li>
-        <li><kbd>R</kbd> Reload</li>
-        <li><kbd>G</kbd> Drop item</li>
-        <li><kbd>M</kbd> Map (tap or hold)</li>
-        <li><kbd>Esc</kbd> Pause</li>
-      </ul>
+    </section>
+
+    <button id="open-locker" type="button" class="locker-btn">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9.5 6.5 A2.5 2.5 0 1 1 12 9 V11 M12 11 L2.5 18 H21.5 Z"/></svg>
+      <span class="text"><span class="t">Locker</span><span class="skin-name" id="locker-skin"></span></span>
+    </button>
+    <aside class="skin-plate" id="skin-plate">
+      <div class="rarity" id="plate-rarity"></div>
+      <div class="name" id="plate-name"></div>
+      <div class="blurb" id="plate-blurb"></div>
+      <div class="hint">Drag to turn</div>
+    </aside>
+
+    <section class="menu-view view-pause" data-view="pause" hidden>
+      <div class="plate pause-panel">
+        <h2 id="pause-title">Paused</h2>
+        <p class="sub" id="overlay-sub"></p>
+        <div class="pause-buttons">
+          <button id="resume" type="button" class="big">Resume</button>
+          <button id="pause-settings" type="button" class="secondary">Settings</button>
+          <button id="pause-menu" type="button" class="secondary">Main menu</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="plate settings-panel">
+        <div class="settings-head">
+          <h2 id="settings-title">Settings</h2>
+          <button id="settings-close" type="button" class="secondary close-btn" aria-label="Close settings">✕</button>
+        </div>
+        <nav class="settings-tabs" id="settings-tabs" aria-label="Settings sections"></nav>
+        <div class="settings-body" id="settings-body"></div>
+        <div class="settings-foot">
+          <button id="settings-reset" type="button" class="text-btn">Restore defaults</button>
+          <button id="settings-done" type="button" class="big">Done</button>
+        </div>
+      </div>
     </div>
   </div>
 

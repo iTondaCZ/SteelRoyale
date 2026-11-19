@@ -2,6 +2,7 @@
 // A single bone rig is posed per character, and each body/gun part becomes one instance.
 import * as THREE from 'three';
 import { RARITY, CONSUMABLES } from '../config.js';
+import { BODY_PARTS, skinById, skinParts } from '../skins.js';
 
 const MAX_PARTS = 2800;
 const DRAW_DISTANCE = 360;
@@ -12,19 +13,33 @@ const TORSO = ['#2f6fb5', '#b5452f', '#3f8f4a', '#8a3fb5', '#c98a2b', '#2a8f8f',
 const LEGS = ['#2b2f36', '#3b3428', '#283840', '#3a2d3f', '#2f3a2a', '#4a4a4a'];
 const ACCENT = ['#ff7a1a', '#ffd23f', '#e8e8e8', '#38c6f4', '#ff4d6d'];
 
-const PLAYER_OUTFIT = { torso: '#2f6fb5', legs: '#2b2f36', skin: '#d6a47a', accent: '#ff7a1a', visor: '#1b1f24' };
-const DUMMY_OUTFIT = { torso: '#ff7a1a', legs: '#4a525c', skin: '#9aa3ab', accent: '#ffd23f', visor: '#23282e' };
+const BOOTS = '#1d2126';
+const DUMMY_OUTFIT = {
+  palette: { torso: '#ff7a1a', arms: '#ff7a1a', legs: '#4a525c', boots: BOOTS, skin: '#9aa3ab', visor: '#23282e', accent: '#ffd23f', gear: '#3a4047' },
+  parts: BODY_PARTS,
+};
 
+/** { palette, parts } for a character: the player's chosen skin (c.skin), or a random outfit for bots. */
 function outfitFor(c) {
-  if (c.kind === 'player') return PLAYER_OUTFIT;
+  if (c.kind === 'player') {
+    const skin = skinById(c.skin);
+    return { palette: skin.palette, parts: skinParts(skin) };
+  }
   if (c.kind === 'dummy') return DUMMY_OUTFIT;
   const h = (c.id * 2654435761) >>> 0;
+  const torso = TORSO[h % TORSO.length];
   return {
-    torso: TORSO[h % TORSO.length],
-    legs: LEGS[(h >>> 4) % LEGS.length],
-    skin: SKIN[(h >>> 8) % SKIN.length],
-    accent: ACCENT[(h >>> 12) % ACCENT.length],
-    visor: '#1b1f24',
+    palette: {
+      torso,
+      arms: torso,
+      legs: LEGS[(h >>> 4) % LEGS.length],
+      boots: BOOTS,
+      skin: SKIN[(h >>> 8) % SKIN.length],
+      accent: ACCENT[(h >>> 12) % ACCENT.length],
+      visor: '#1b1f24',
+      gear: '#3a4047',
+    },
+    parts: BODY_PARTS,
   };
 }
 
@@ -39,12 +54,12 @@ const GUNS = {
 };
 const GUN_COLORS = { metal: '#3a4047', dark: '#1e2226', wood: '#7a5230', olive: '#5b6b3a' };
 
-export function createCrowd(scene) {
+export function createCrowd(scene, { maxParts = MAX_PARTS } = {}) {
   const geo = new THREE.BoxGeometry(1, 1, 1);
   const mat = new THREE.MeshLambertMaterial({ flatShading: true });
-  const mesh = new THREE.InstancedMesh(geo, mat, MAX_PARTS);
+  const mesh = new THREE.InstancedMesh(geo, mat, maxParts);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PARTS * 3), 3);
+  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxParts * 3), 3);
   mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -80,21 +95,10 @@ export function createCrowd(scene) {
   hand.position.set(0.1, 0.3, -0.35);
   upper.add(hand);
 
-  // [node, sx, sy, sz, ox, oy, oz, colourKey]
-  const BODY_PARTS = [
-    [legL, 0.22, 0.9, 0.26, 0, -0.45, 0, 'legs'],
-    [legR, 0.22, 0.9, 0.26, 0, -0.45, 0, 'legs'],
-    [legL, 0.24, 0.12, 0.32, 0, -0.86, -0.04, 'boots'],
-    [legR, 0.24, 0.12, 0.32, 0, -0.86, -0.04, 'boots'],
-    [upper, 0.58, 0.64, 0.32, 0, 0.36, 0, 'torso'],
-    [upper, 0.6, 0.1, 0.34, 0, 0.1, 0, 'accent'],
-    [head, 0.34, 0.34, 0.34, 0, 0.2, 0, 'skin'],
-    [head, 0.3, 0.1, 0.04, 0, 0.24, -0.18, 'visor'],
-    [armL, 0.15, 0.6, 0.15, 0, -0.28, 0, 'torso'],
-    [armR, 0.15, 0.6, 0.15, 0, -0.28, 0, 'torso'],
-  ];
+  // Body and gear parts (js/skins.js) name the node they hang from.
+  const NODES = { legL, legR, upper, head, armL, armR };
 
-  const states = new Map(); // id -> { phase, deathT, crouchT, outfit, colors }
+  const states = new Map(); // id -> { phase, deathT, crouchT, outfit, skin }
   const muzzles = new Map(); // id -> THREE.Vector3
   const tmpColor = new THREE.Color();
   const m = new THREE.Matrix4();
@@ -104,7 +108,7 @@ export function createCrowd(scene) {
   let n = 0;
 
   function emit(node, sx, sy, sz, ox, oy, oz, color) {
-    if (n >= MAX_PARTS) return;
+    if (n >= maxParts) return;
     t.makeTranslation(ox, oy, oz);
     s.makeScale(sx, sy, sz);
     m.multiplyMatrices(node.matrixWorld, t).multiply(s);
@@ -116,8 +120,11 @@ export function createCrowd(scene) {
   function stateOf(c) {
     let st = states.get(c.id);
     if (!st) {
-      st = { phase: Math.random() * 6, deathT: 0, crouchT: 0, outfit: outfitFor(c) };
+      st = { phase: Math.random() * 6, deathT: 0, crouchT: 0, outfit: outfitFor(c), skin: c.skin };
       states.set(c.id, st);
+    } else if (st.skin !== c.skin) {
+      st.outfit = outfitFor(c); // skin changed (the locker preview)
+      st.skin = c.skin;
     }
     return st;
   }
@@ -243,10 +250,7 @@ export function createCrowd(scene) {
         }
         if (c.id === hideId) continue;
 
-        for (const [node, sx, sy, sz, ox, oy, oz, key] of BODY_PARTS) {
-          const color = key === 'boots' ? '#1d2126' : o[key];
-          emit(node, sx, sy, sz, ox, oy, oz, color);
-        }
+        for (const [node, sx, sy, sz, ox, oy, oz, key] of o.parts) emit(NODES[node], sx, sy, sz, ox, oy, oz, o.palette[key]);
         if (w) {
           const rarity = RARITY[c.weapon.rarity].color;
           for (const [sx, sy, sz, ox, oy, oz, key] of w.parts) emit(gun, sx, sy, sz, ox, oy, oz, key === 'accent' ? rarity : GUN_COLORS[key]);

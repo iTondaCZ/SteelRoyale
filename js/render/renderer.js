@@ -22,7 +22,9 @@ const STORM_HEMI_GROUND = '#3c2c52';
 
 export function createRenderer(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+  let renderScale = 1; // the "Render scale" setting
+  const pixelRatio = () => Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO) * renderScale;
+  renderer.setPixelRatio(pixelRatio());
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -83,10 +85,42 @@ export function createRenderer(container) {
     sun.intensity = lerp(CLEAR.sun, STORM.sun, k);
   }
 
+  const extraScenes = new Set();
+  /**
+   * Graphics settings. shadows: 'off' | 'low' (1024, hard edges) | 'high' (2048, soft).
+   * Extra scenes (the menu stage) get the same shadow treatment.
+   */
+  function setQuality({ shadows = 'high', renderScale: scale = 1 } = {}, scenes = []) {
+    for (const s of scenes) extraScenes.add(s);
+    if (scale !== renderScale) {
+      renderScale = scale;
+      resize();
+    }
+    sun.castShadow = shadows !== 'off';
+    const mapSize = shadows === 'high' ? 2048 : 1024;
+    if (sun.shadow.mapSize.x !== mapSize) {
+      sun.shadow.mapSize.set(mapSize, mapSize);
+      if (sun.shadow.map) {
+        sun.shadow.map.dispose();
+        sun.shadow.map = null; // rebuilt at the new size on the next frame
+      }
+    }
+    const type = shadows === 'high' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    if (renderer.shadowMap.type !== type) {
+      renderer.shadowMap.type = type;
+      // The shadow filter is compiled into the shaders: rebuild them.
+      for (const s of [scene, ...extraScenes]) {
+        s.traverse((o) => {
+          for (const m of [].concat(o.material || [])) m.needsUpdate = true;
+        });
+      }
+    }
+  }
+
   function resize() {
     const w = container.clientWidth;
     const h = container.clientHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+    renderer.setPixelRatio(pixelRatio());
     renderer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
@@ -112,6 +146,7 @@ export function createRenderer(container) {
       renderer.render(scene, camera);
     },
     setWeather,
+    setQuality,
     resize,
   };
 }

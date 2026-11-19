@@ -1,8 +1,8 @@
 # SteelRoyale: Game Design
 
-**Status (2026-11-16):** steps 1 and 2 are built and playable, plus the storm from step 3.
-- **Built:** a full offline match against up to 99 bots on a generated island, and a training range.
-- **Still planned:** the dropship and glider, building, vehicles, the polish pass, and the settings menu.
+**Status (2026-11-18):** steps 1 and 2 are built and playable, plus the storm, the main menu, settings and skins from step 3.
+- **Built:** a full offline match against up to 99 bots on a generated island, a training range, and a main menu with a locker (skins) and settings.
+- **Still planned:** the dropship and glider, spectating, building, vehicles, and the polish pass.
 
 Each section is marked **Built** or **Planned**. Exact numbers live in `js/config.js`, which wins if it disagrees with this doc. The user has handed design calls to Claude ("you're smart, you can figure it out"), so decide, then state your choices.
 
@@ -16,7 +16,7 @@ A browser battle royale. You and 99 bots start on an island, loot chests for the
 - Bots that feel like players: they loot, fight each other, heal, and stay ahead of the storm.
 - Every match is different (new island, new storm path).
 
-**Non-goals (v1):** online play, teams, accounts, shops/skins/progression, mobile or gamepad, voice.
+**Non-goals (v1):** online play, teams, accounts, shops/progression (skins are cosmetic and all unlocked), mobile or gamepad, voice.
 
 **Anti-goals** (failure even if it "works")
 - Feeling like a renamed copy of an existing game. Our own name, look, item names and place names; never Fortnite terms like "Victory Royale".
@@ -31,7 +31,7 @@ A browser battle royale. You and 99 bots start on an island, loot chests for the
 - `server.js` is a zero-dependency static server on `127.0.0.1:8080`. It never serves dot-files, rejects null bytes, accepts `--open`, and reads the `HOST`/`PORT` environment variables.
   - `play.bat` (Windows) runs `node server.js --open`.
   - Opening `index.html` as a `file://` page can't work, and `js/boot.js` explains that on screen.
-- Settings (player count, difficulty) are remembered in `localStorage`.
+- Settings (player count, difficulty, skin, graphics, controls, item slots) are remembered in `localStorage` under `steelroyale.settings`. `js/settings.js` validates them, so an old or broken save falls back to defaults.
 
 **Online-ready architecture:**
 - `js/sim/` never touches Three.js or the DOM.
@@ -42,18 +42,17 @@ A browser battle royale. You and 99 bots start on an island, loot chests for the
 ## 3. Match flow
 
 **Built:**
-1. **Start screen:** player count (25 / 50 / **100**), bot difficulty (Easy / **Normal** / Hard), Play, and Training range.
+1. **Main menu** (section 15): lobby size 25 / 50 / **100**, enemy skill Low / **Medium** / High (easy / normal / hard in code), PLAY!, Training mode, the Locker and the settings gear, with your character on a turntable beside it.
 2. Everyone spawns **unarmed on the ground**, at least 45 m apart, 30% of them near named places.
 3. **Loot, fight, survive** while the storm shrinks.
 4. **Eliminated:** a screen with your placement (#N), eliminations, damage dealt, time survived and who got you ("by the storm", "by a long fall"). Buttons: **Play again** and **Main menu**. The match keeps simulating behind it.
 5. **Win:** a "#1 Steel Champion" screen.
-6. **Esc** pauses. While you're in a game, leaving the page asks "Leave site?", because Ctrl is crouch and Ctrl+W can't be blocked.
+6. **Esc** pauses: Resume, Settings (all of them, applied live) and Main menu. While you're in a game, leaving the page asks "Leave site?", because Ctrl is crouch and Ctrl+W can't be blocked.
 
 **Planned (step 3):**
 - **Dropship:** it flies a straight line across the map. Press Space to jump; you're auto-ejected at the end. Bots jump at random points, favouring named places.
 - **Freefall into a glider,** steered with WASD.
 - **Spectating your killer.**
-- **Settings:** name, graphics quality, mouse sensitivity.
 
 ## 4. Controls (Built)
 
@@ -121,6 +120,7 @@ Five rarities: Common (gray), Uncommon (green), Rare (blue), Epic (purple), Lege
 
 **Picking up**
 - Look at an item and press E.
+- **Preferred slots** (a setting, on by default): each item type can have its own slot, and a pickup goes there if that slot is empty, otherwise to a free slot as usual. Defaults: AR 1, Shotgun 2, SMG / Sniper / Rocket 3, Medkit / Bandage 4, shields 5, Pistol any. The player's character carries them as `slotPrefs`; bots have none. Matching stacks are topped up first.
 - With full slots, the item swaps with the selected slot, and the old item lands where the new one was.
 - Ammo you walk over is picked up automatically.
 
@@ -259,7 +259,7 @@ A safe circle that shrinks in phases. Each next circle lies inside the current o
   - Minimap with players-alive and eliminations counters, storm timer, full map.
 - **Free-look mode:** when the browser refuses mouse capture (as the Claude app's browser pane does), a hint explains it.
 
-**Planned:** footsteps, a storm hum, engine sounds, and a Low / Medium / High graphics setting.
+**Planned:** footsteps, a storm hum and engine sounds.
 
 ## 13. Performance (Built)
 
@@ -273,7 +273,7 @@ A safe circle that shrinks in phases. Each next circle lies inside the current o
 
 1. ✅ **Foundation:** server, scene, movement, camera, shooting, dummies.
 2. ✅ **First real match:** movement (crouch, slide, mantle), all weapons, inventory and loot, island map, bots, match flow, HUD, minimap and full map. ✅ **Storm** (pulled forward from step 3).
-3. ⏳ **Dropship and glider,** spectating, and settings.
+3. ⏳ **Dropship and glider,** spectating. ✅ Main menu, settings and skins.
 4. ⏳ **Building:** wrench harvesting and Steel; wall/floor/ramp pieces on the existing 4 m grid; destructible map buildings (the pieces already have HP fields); bots using cover; updating the nav grid with `markBox()`.
 5. ⏳ **Vehicles:** Rover (fast buggy, 300 HP) and Hauler (truck, 700 HP), about 25 on roads. Enter and exit, damage, explosions, run-overs. Bots don't drive in v1.
 6. ⏳ **Polish:** sound, effects, balance (especially the opening-minute pace), and a performance pass.
@@ -289,3 +289,24 @@ A safe circle that shrinks in phases. Each next circle lies inside the current o
 
 - `docs/superpowers/plans/2026-11-16-step1-foundation.md`: the step 1 plan, with notes on where the code differs at the bottom.
 - `docs/superpowers/plans/2026-11-16-step2-first-match.md`: the step 2 decisions and file list.
+
+## 15. Main menu, settings and skins (Built)
+
+**Main menu** (`js/ui/menu.js`, markup in `index.html`), laid out from the user's sketch to feel like a game rather than a website:
+- The **logo** is large at the top left (brushed steel and orange, leaning forward). A **gear button** at the top right opens Settings as a window over the menu.
+- A riveted steel panel at the bottom left holds **Lobby size**, **Enemy skill**, a huge **PLAY!** button (with a slow glow) and a small **Training mode** button.
+- On the right your character stands on a steel turntable inside a **glowing gold ring** (`js/render/lobby.js`, drawn by the game's own renderer). Drag it to turn it; it drifts back after a few seconds. Under it, the **Locker** button shows the equipped skin's name.
+- **Locker:** the skin grid replaces the left panel, and the name, rarity and description of the skin replace the Locker button. Back or Esc returns.
+- Buttons are chunky and raised on a darker lip that sinks when pressed; panels are steel plates bolted at the corners.
+- In a match the overlay becomes the pause screen (Resume, Settings, Main menu). With `?auto=1` it's the "Ready to drop" / "Training mode" screen.
+- Below 900 px wide the stage moves behind the panel and the Locker button moves under the gear.
+
+**Skins** (`js/skins.js`): 10 cosmetic outfits, all unlocked: Recruit (default), Foreman, Scrapper, Mossback, Cobalt Guard, Night Shift, Ember, Frostbite, Chromium, Gold Rivet. Each is a palette (torso, arms, legs, boots, skin, visor, accent, gear) plus gear pieces (hard hat, helmet, lamp, cap, mohawk, antenna, faceplate, goggles, scarf, stripes, chest plate, backpack, pouches, pads, knee pads). Gear is extra boxes on the same rig, so it costs a few instances and no draw calls. The locker cards show flat front views drawn from the same boxes (`js/ui/skin-portrait.js`). Bots keep their random outfits.
+
+**Settings** (`js/settings.js` holds the defaults and limits):
+- **Video:** graphics quality Low / Medium / **High** (a preset for shadows and render scale; changing either by hand shows Custom), shadows Off / Low (1024, hard) / **High** (2048, soft), render scale 50–**100**%, frame rate limit **None** / 30 / 60 / 120 / 144, field of view 60–100 (**75**; aiming zooms by the same ratio), FPS counter (**on**).
+- **Controls:** mouse sensitivity 0.1–3× (**1×**), aiming sensitivity 20–150% (**100%**, while holding right mouse), invert mouse Y, and the key list.
+- **Audio:** volume (**100%**).
+- **Item slots:** the preferred-slot switch, a preview of the hotbar, and a slot (Any or 1–5) per item type.
+- Each tab has **Restore defaults**. Every change applies at once, also mid-match.
+

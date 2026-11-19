@@ -17,7 +17,8 @@ const PROBE = [
 
 export function createCameraRig(camera, world) {
   let dist = CAMERA.distance;
-  let fov = CAMERA.fov;
+  let baseFov = CAMERA.fov; // the player's field of view setting
+  let fov = baseFov;
   let eye = PLAYER.eyeHeight;
   const origin = { x: 0, y: 0, z: 0 };
   const start = { x: 0, y: 0, z: 0 };
@@ -44,17 +45,24 @@ export function createCameraRig(camera, world) {
   }
 
   return {
+    /** Field of view setting (degrees); aiming zooms in by the same ratio as the default. */
+    setFov(deg) {
+      baseFov = deg;
+    },
     /**
      * Returns the distance from the camera to the shot origin (used to hide the player when too close).
-     * opts: { crouching, scopeFov, sprinting }
+     * opts: { crouching, scopeFov, sprinting, speed }
      */
-    update(pos, yaw, pitch, aiming, dt, { crouching = false, scopeFov = null, sprinting = false } = {}) {
+    update(pos, yaw, pitch, aiming, dt, { crouching = false, scopeFov = null, sprinting = false, speed = 0 } = {}) {
       const k = 1 - Math.exp(-dt * 14);
       eye = lerp(eye, crouching ? PLAYER.crouchEyeHeight : PLAYER.eyeHeight, k);
       shotOriginAt(pos, yaw, world, origin, eye);
       lookDir(yaw, pitch, dir);
 
-      const targetFov = aiming ? scopeFov || CAMERA.aimFov : sprinting ? CAMERA.fov + 6 : CAMERA.fov;
+      const aimFov = baseFov * (CAMERA.aimFov / CAMERA.fov);
+      // Widen the view when sprinting, and more the faster you go beyond that.
+      const fast = Math.min(20, Math.max(0, (speed - PLAYER.sprintSpeed) * 0.9));
+      const targetFov = aiming ? scopeFov || aimFov : baseFov + Math.max(sprinting ? 6 : 0, fast);
       dist = lerp(dist, aiming ? CAMERA.aimDistance : CAMERA.distance, k);
       fov = lerp(fov, targetFov, aiming && scopeFov ? Math.min(1, k * 2) : k);
 

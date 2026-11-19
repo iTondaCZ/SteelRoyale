@@ -5,7 +5,7 @@ A browser battle royale: you against up to 99 bots on a generated island. Plain 
 ## Run & test
 - `node server.js` serves on http://127.0.0.1:8080. Add `--open` to open the browser; `HOST=0.0.0.0` exposes it on the LAN. `play.bat` does the same on Windows.
 - `.claude/launch.json` has the preview config `steelroyale`: `preview_start({ name: 'steelroyale' })`. It's pinned to port 8080 (`autoPort: false`), so if 8080 is busy (e.g. `play.bat` is running) it fails instead of moving.
-- `npm test` runs `node --test "tests/**/*.test.js"`: about 165 tests, mostly the simulation, in about 11 s.
+- `npm test` runs `node --test "tests/**/*.test.js"`: about 185 tests, mostly the simulation, in about 11 s.
 - Opening `index.html` as a `file://` page never works (module scripts are blocked), and `js/boot.js` says so on screen.
 
 ## Architecture
@@ -28,6 +28,10 @@ A browser battle royale: you against up to 99 bots on a generated island. Plain 
   - `ui/inventory.js`: the hotbar, which doubles as the Tab inventory
   - `ui/item-icons.js`: the SVG item icons (weapon silhouettes on a 64×24 box, consumables on 24×24). A new weapon or consumable needs a drawing here; `tests/item-icons.test.js` fails until it has one
   - `hold-toggle.js`: the tap-or-hold logic for Tab and M
+  - `settings.js`: settings defaults, limits, quality presets, `slotPrefsOf()` and localStorage (pure, tested). `main.js` `applySettings()` pushes them into the renderer, input, audio, HUD and the player
+  - `skins.js`: the skin catalogue plus the body and gear box parts, shared by `render/crowd.js` and `ui/skin-portrait.js`. A character's `skin` field picks its outfit (only the player has one)
+  - `ui/menu.js`: main menu, locker, settings and pause screen. `render/lobby.js`: the menu's turntable stage
+  - Preferred item slots: `c.slotPrefs` (`{ itemType: slotIndex }`) is read by `addItem()` in `sim/inventory.js`
 
 ## Conventions and gotchas
 - Yaw 0 looks toward −Z, and positive yaw turns left. forward = (−sin y, 0, −cos y), right = (cos y, 0, −sin y). The camera uses rotation order `YXZ`.
@@ -46,6 +50,7 @@ A browser battle royale: you against up to 99 bots on a generated island. Plain 
 - A hidden pane pauses `requestAnimationFrame`. Step frames by hand with `let T = performance.now(); steel.update(T += 16.7)` in a loop.
 - `window.steel` exposes `game`, `session`, `input`, `view`, `update` and `startPlaying('match' | 'training')`.
 - Skip the menu with `?mode=match&players=100&difficulty=normal&auto=1` (or `mode=training`).
+- `steel.menu` and `steel.settings` expose the menu and the current settings; the lobby only renders while no match is loaded.
 - Wait for `window.steel` (and `steel.session`) before using them; loading takes a second or two.
 - Simulate keys with `window.dispatchEvent(new KeyboardEvent('keydown', { code }))`. Adding to `input.keys` doesn't trigger presses like slots, drop or Tab.
 - Tools time out after 45 s. For long runs, call `steel.game.tick(cmd)` without rendering instead of `steel.update`.
@@ -61,9 +66,9 @@ A browser battle royale: you against up to 99 bots on a generated island. Plain 
 - Design calls are yours: decide and state your choices briefly, and ask only when something is truly ambiguous. Reply in English.
 - Verify in the browser after UI or gameplay changes, and say plainly what couldn't be verified (real pointer lock, real FPS).
 
-## Status (2026-11-16)
-- Only the initial commit exists. Step 1 is staged (as the user left it), and steps 2 and up are unstaged on top. Check `git status` before doing anything with git.
-- Built: steps 1–2 and the storm. Next is step 3: the dropship and glider, then building, vehicles, polish, and settings (graphics, sensitivity).
+## Status (2026-11-18)
+- Work is committed on `main` by the user. Check `git status` before doing anything with git.
+- Built: steps 1–2, the storm, and the main menu with settings and skins. Next is step 3: the dropship and glider and spectating, then building, vehicles and polish.
 - Known issues:
   - The opening minute is too deadly (about 45% eliminated), because everyone spawns on the ground.
   - Re-capturing the mouse after closing the Tab inventory is only unit-tested.

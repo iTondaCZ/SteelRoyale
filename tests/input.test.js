@@ -295,3 +295,21 @@ test('pausing with the menu open resets Tab, so the next press opens it again', 
   win.dispatch('keydown', { code: 'Tab' });
   assert.equal(input.menuOpen, true);
 });
+
+test('aiming scales mouse turning by the aim sensitivity, and invert Y flips pitch', async () => {
+  const { win, el, input } = setup(refuse('WrongDocumentError'));
+  await input.start();
+  input.aimSensitivity = 0.5;
+  const yaw0 = input.yaw;
+  el.dispatch('mousedown', { button: 2 });
+  win.dispatch('mousemove', { movementX: 100, movementY: 0 });
+  assert.ok(Math.abs(input.yaw - (yaw0 - 50 * input.sensitivity)) < 1e-12);
+  win.dispatch('mouseup', { button: 2 });
+  input.pitch = 0;
+  win.dispatch('mousemove', { movementX: 0, movementY: 10 });
+  assert.ok(input.pitch < 0, 'mouse down looks down');
+  input.invertY = true;
+  input.pitch = 0;
+  win.dispatch('mousemove', { movementX: 0, movementY: 10 });
+  assert.ok(input.pitch > 0, 'inverted: mouse down looks up');
+});

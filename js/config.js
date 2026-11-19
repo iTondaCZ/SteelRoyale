@@ -47,6 +47,11 @@ export const PLAYER = {
   waterWadeDepth: 0.5,
   waterSpeedMul: 0.6,
   useItemSpeedMul: 0.5,
+  // Players (not bots) who keep jump held through their landings chain hops: each chained hop
+  // multiplies horizontal speed (no top speed), and mid-chain the direction follows your steering.
+  hopBoost: 1.05,
+  hopTurnRate: 6, // rad/s the direction swings toward your steering mid-chain (~340°/s)
+  maxSubstep: 0.25, // fast moves are split into steps this long so thin walls can't be skipped
 };
 
 // Hit volumes, relative to the feet. The body capsule (segment bottom→top plus

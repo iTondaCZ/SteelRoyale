@@ -60,7 +60,7 @@ export function addItem(c, item) {
       }
     }
     while (left > 0) {
-      const i = firstEmptySlot(inv);
+      const i = emptySlotFor(c, item);
       if (i < 0) break;
       const take = Math.min(max, left);
       inv.slots[i] = { kind: 'consumable', type: item.type, count: take };
@@ -70,7 +70,7 @@ export function addItem(c, item) {
     return left === item.count ? item : { ...item, count: left };
   }
   // weapon
-  const i = firstEmptySlot(inv);
+  const i = emptySlotFor(c, item);
   if (i < 0) return item;
   inv.slots[i] = item;
   if (i === inv.selected) selectSlot(c, i);
@@ -80,6 +80,17 @@ export function addItem(c, item) {
 function firstEmptySlot(inv) {
   if (!inv.slots[inv.selected]) return inv.selected;
   return inv.slots.indexOf(null);
+}
+
+/**
+ * Where a new item goes: its preferred slot (c.slotPrefs, e.g. { ar: 0, shieldSmall: 4 }) if that
+ * slot is empty, otherwise the selected slot if empty, otherwise the first empty one. -1 = no room.
+ */
+function emptySlotFor(c, item) {
+  const inv = c.inventory;
+  const pref = c.slotPrefs ? c.slotPrefs[item.type] : undefined;
+  if (Number.isInteger(pref) && pref >= 0 && pref < inv.slots.length && !inv.slots[pref]) return pref;
+  return firstEmptySlot(inv);
 }
 
 /** Pick up a loot item from the ground; with full slots it swaps with the selected slot. */
